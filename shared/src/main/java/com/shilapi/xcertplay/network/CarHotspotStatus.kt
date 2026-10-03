@@ -1,5 +1,6 @@
 package com.shilapi.xcertplay.network
 
+import com.shilapi.xcertplay.compat.getSystemServiceCompat
 import android.content.Context
 import android.net.wifi.WifiManager
 
@@ -18,7 +19,7 @@ object CarHotspotStatus {
      * while tethering is off.
      */
     fun isEnabled(context: Context): Boolean? {
-        val wifi = context.applicationContext.getSystemService(WifiManager::class.java) ?: return null
+        val wifi = context.applicationContext.getSystemServiceCompat(WifiManager::class.java) ?: return null
         return runCatching {
             WifiManager::class.java.getMethod("getWifiApState").invoke(wifi) as Int == WIFI_AP_STATE_ENABLED
         }.recoverCatching {

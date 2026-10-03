@@ -1,5 +1,6 @@
 package com.shilapi.xcertplay
 
+import com.shilapi.xcertplay.compat.getSystemServiceCompat
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
@@ -51,8 +52,11 @@ internal class DiLink51ClusterMonitor(context: Context, private val onState: (Cl
                     seen.clear()
                     since = bootTime()
                 }
-                val events = context.getSystemService(UsageStatsManager::class.java).queryEvents(since, now)
-                    ?: throw IllegalStateException("Usage events unavailable")
+                // KitKat has no UsageStatsManager: fold the linkage error into the RuntimeException
+                // path the caller already handles, instead of crashing the polling loop.
+                val events = runCatching {
+                    context.getSystemServiceCompat(UsageStatsManager::class.java)?.queryEvents(since, now)
+                }.getOrNull() ?: throw IllegalStateException("Usage events unavailable")
                 val event = UsageEvents.Event()
                 while (events.hasNextEvent()) {
                     events.getNextEvent(event)
@@ -79,7 +83,10 @@ internal class DiLink51ClusterMonitor(context: Context, private val onState: (Cl
     }
 
     companion object {
-        fun hasAccess(context: Context): Boolean = context.getSystemService(AppOpsManager::class.java)
-            .checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName) == AppOpsManager.MODE_ALLOWED
+        fun hasAccess(context: Context): Boolean =
+            // AppOpsManager exists on API 19+; OPSTR_GET_USAGE_STATS is an inlined constant.
+            context.getSystemServiceCompat(AppOpsManager::class.java)?.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName,
+            ) == AppOpsManager.MODE_ALLOWED
     }
 }

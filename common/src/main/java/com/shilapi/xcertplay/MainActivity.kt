@@ -1,71 +1,83 @@
 package com.shilapi.xcertplay
 
+import android.graphics.Typeface
 import android.os.Bundle
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.shilapi.xcertplay.mfi.MfiProtocolMajorResult
 import com.shilapi.xcertplay.mfi.MfiSelfCheck
 import com.shilapi.xcertplay.mfi.MfiSelfCheckResult
 import com.shilapi.xcertplay.transport.LinuxI2cTransport
-import com.shilapi.xcertplay.ui.theme.XcertplayTheme
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
+/** Board I2C diagnostic, reimplemented with plain views for the KitKat port (no Compose). */
 class MainActivity : ComponentActivity() {
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
-    private var status by mutableStateOf<DiagnosticStatus>(DiagnosticStatus.Idle)
+    private var devicePathInput: EditText? = null
+    private var statusLabel: TextView? = null
+    private var checkButton: Button? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            XcertplayTheme {
-                var devicePath by remember { mutableStateOf("/dev/i2c-1") }
-                Scaffold(modifier = Modifier.fillMaxSize()) { padding ->
-                    Column(
-                        modifier = Modifier.padding(padding).padding(24.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text("Board I2C diagnostic")
-                        OutlinedTextField(
-                            value = devicePath,
-                            onValueChange = { devicePath = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Linux I2C device") },
-                            singleLine = true,
-                            enabled = status !is DiagnosticStatus.Running,
-                        )
-                        Button(
-                            onClick = { runSelfCheck(devicePath) },
-                            enabled = status !is DiagnosticStatus.Running,
-                        ) {
-                            Text("Run MFi self-check")
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text(status.message())
-                        Text("CH341 requires deployment-specific VID/PID configuration.")
-                    }
-                }
-            }
+        val density = resources.displayMetrics.density
+        fun dip(value: Int): Int = (value * density).toInt()
+
+        val title = TextView(this).apply {
+            text = "Board I2C diagnostic"
+            textSize = 20f
+            setTypeface(typeface, Typeface.BOLD)
         }
+        val devicePath = EditText(this).apply {
+            setText("/dev/i2c-1")
+            hint = "Linux I2C device"
+            setSingleLine(true)
+        }
+        devicePathInput = devicePath
+        val run = Button(this).apply {
+            text = "Run MFi self-check"
+        }
+        checkButton = run
+        val hint = TextView(this).apply {
+            text = "CH341 requires deployment-specific VID/PID configuration."
+            textSize = 12f
+        }
+        val status = TextView(this).apply {
+            text = DiagnosticStatus.Idle.message()
+            textSize = 14f
+        }
+        statusLabel = status
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dip(24), dip(24), dip(24), dip(24))
+            gravity = Gravity.TOP
+            addView(title, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(devicePath, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).also {
+                it.topMargin = dip(12)
+            })
+            addView(run, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).also {
+                it.topMargin = dip(12)
+            })
+            addView(status, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).also {
+                it.topMargin = dip(16)
+            })
+            addView(hint, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).also {
+                it.topMargin = dip(4)
+            })
+        }
+        run.setOnClickListener { runSelfCheck(devicePath.text.toString()) }
+        setContentView(root)
     }
 
     override fun onDestroy() {
@@ -73,8 +85,14 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    private fun setBusy(busy: Boolean) {
+        checkButton?.isEnabled = !busy
+        devicePathInput?.isEnabled = !busy
+    }
+
     private fun runSelfCheck(devicePath: String) {
-        status = DiagnosticStatus.Running
+        setBusy(true)
+        statusLabel?.text = DiagnosticStatus.Running.message()
         executor.execute {
             val next = try {
                 LinuxI2cTransport.open(devicePath).use { MfiSelfCheck(it).run() }
@@ -85,7 +103,10 @@ class MainActivity : ComponentActivity() {
                 DiagnosticStatus.Failure(error.message ?: error.javaClass.simpleName)
             }
             runOnUiThread {
-                if (!isFinishing && !isDestroyed) status = next
+                if (!isFinishing && !isDestroyed) {
+                    setBusy(false)
+                    statusLabel?.text = next.message()
+                }
             }
         }
     }

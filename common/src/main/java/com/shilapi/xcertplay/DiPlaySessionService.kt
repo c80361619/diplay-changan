@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import com.shilapi.xcertplay.compat.getSystemServiceCompat
 import com.shilapi.xcertplay.host.R
 
 /** Keeps an explicitly started connection alive when another car app is in the foreground. */
@@ -22,16 +23,28 @@ class DiPlaySessionService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "CarPlay connection", NotificationManager.IMPORTANCE_LOW))
+        val manager = getSystemServiceCompat(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT >= 26) {
+            manager?.createNotificationChannel(NotificationChannel(CHANNEL, "CarPlay connection", NotificationManager.IMPORTANCE_LOW))
+        }
         val open = PendingIntent.getActivity(this, 0, Intent(this, CarPlayHostActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, DiPlaySessionService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val notification = Notification.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_diplay_notification)
-            .setContentTitle("DiPlay")
-            .setContentText("CarPlay connection running")
-            .setContentIntent(open).setOngoing(true)
-            .addAction(Notification.Action.Builder(null, "Disconnect", stop).build()).build()
+        val notification = if (Build.VERSION.SDK_INT >= 26) {
+            Notification.Builder(this, CHANNEL)
+                .setSmallIcon(R.drawable.ic_diplay_notification)
+                .setContentTitle("DiPlay")
+                .setContentText("CarPlay connection running")
+                .setContentIntent(open).setOngoing(true)
+                .addAction(Notification.Action.Builder(null, "Disconnect", stop).build()).build()
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(this)
+                .setSmallIcon(R.drawable.ic_diplay_notification)
+                .setContentTitle("DiPlay")
+                .setContentText("CarPlay connection running")
+                .setContentIntent(open).setOngoing(true)
+                .addAction(0, "Disconnect", stop).build()
+        }
         if (Build.VERSION.SDK_INT >= 29) {
             var types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
             if (Build.VERSION.SDK_INT >= 30 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {

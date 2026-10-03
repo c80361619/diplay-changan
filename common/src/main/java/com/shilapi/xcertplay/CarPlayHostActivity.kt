@@ -1,5 +1,6 @@
 package com.shilapi.xcertplay
 
+import com.shilapi.xcertplay.compat.checkSelfPermissionCompat
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -461,7 +462,7 @@ class CarPlayHostActivity : ComponentActivity() {
         )
         val reusedBackgroundSession = adoptBackgroundSession()
         microphoneAvailable =
-            checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+            checkSelfPermissionCompat(Manifest.permission.RECORD_AUDIO)
         microphonePermissionResolved = microphoneAvailable
         if (reusedBackgroundSession) {
             updateDebugOverlays()
@@ -540,8 +541,7 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     private fun hasFineLocationPermission(): Boolean =
-        checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED
+        checkSelfPermissionCompat(Manifest.permission.ACCESS_FINE_LOCATION)
 
     private fun requestVpnConsent() {
         val consent = CarPlayVpnService.prepare(this)
@@ -556,7 +556,7 @@ class CarPlayHostActivity : ComponentActivity() {
 
     private fun requestWirelessPermissions() {
         val permissions = requiredWirelessPermissions()
-        if (permissions.all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }) {
+        if (permissions.all { checkSelfPermissionCompat(it) }) {
             wirelessPermissionsReady = true
             updateHotspotStatusBlock()
             maybeStartCarPlay()
@@ -570,7 +570,7 @@ class CarPlayHostActivity : ComponentActivity() {
 
     private fun hasRequiredWirelessPermissions(): Boolean =
         requiredWirelessPermissions().all {
-            checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
+            checkSelfPermissionCompat(it)
         }
 
     private fun requiredWirelessPermissions(): List<String> = when {
@@ -2791,11 +2791,17 @@ class CarPlayHostActivity : ComponentActivity() {
 
     private data class CanvasSupport(val supported: Boolean, val reason: String, val details: String)
 
-    private fun largerCanvasSupport(display: AirPlayDisplayConfig): CanvasSupport = try {
-        val mime = if (hevcEnabled) MediaFormat.MIMETYPE_VIDEO_HEVC else MediaFormat.MIMETYPE_VIDEO_AVC
-        // Match MediaCodec.createDecoderByType's first suitable decoder; do not silently force
-        // an enlarged stream through a software decoder on a slower head unit.
-        val decoder = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull {
+    private fun largerCanvasSupport(display: AirPlayDisplayConfig): CanvasSupport {
+        // MediaCodecList is API 21+: on KitKat defer the decoder choice to createDecoderByType.
+        if (Build.VERSION.SDK_INT < 21) {
+            return CanvasSupport(true, "legacy_no_codeclist",
+                "Decoder capability result=legacy_no_codeclist (pre-21, choice deferred)")
+        }
+        return try {
+            val mime = if (hevcEnabled) MediaFormat.MIMETYPE_VIDEO_HEVC else MediaFormat.MIMETYPE_VIDEO_AVC
+            // Match MediaCodec.createDecoderByType's first suitable decoder; do not silently force
+            // an enlarged stream through a software decoder on a slower head unit.
+            val decoder = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull {
             !it.isEncoder && it.supportedTypes.any { type -> type.equals(mime, ignoreCase = true) }
         }
         if (decoder == null) {
@@ -2825,6 +2831,7 @@ class CarPlayHostActivity : ComponentActivity() {
     } catch (error: Exception) {
         CanvasSupport(false, "capability_query_${error.javaClass.simpleName}",
             "Decoder capability query failed error=${error.javaClass.simpleName}")
+    }
     }
 
     private fun createAirPlayConfig(size: DisplaySize): AirPlayConfig {

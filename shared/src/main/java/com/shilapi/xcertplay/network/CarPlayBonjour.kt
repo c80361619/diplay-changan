@@ -1,5 +1,6 @@
 package com.shilapi.xcertplay.network
 
+import com.shilapi.xcertplay.compat.getSystemServiceCompat
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
@@ -135,7 +136,8 @@ class CarPlayBonjour(
     private val lifecycleLock = Any()
     private val localAdvertisedAddress = advertisedHostAddress()
     private val multicastLock = (context.applicationContext ?: context)
-        .getSystemService(WifiManager::class.java)
+        // The Wi-Fi service always exists on API 19+; keep non-null as the platform call did.
+        .getSystemServiceCompat(WifiManager::class.java)!!
         .createMulticastLock("carplay-bonjour").apply { setReferenceCounted(false) }
 
     private var started = false

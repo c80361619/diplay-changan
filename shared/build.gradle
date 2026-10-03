@@ -1,13 +1,15 @@
 plugins {
     id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
 }
 android {
     namespace = 'com.shilapi.xcertplay.shared'
-    compileSdk = 37
+    compileSdk = 34
 
     defaultConfig {
-        minSdk = 28
-        targetSdk = 37
+        // KitKat port: Android 4.4.
+        minSdk = 19
+        targetSdk = 19
 
         ndk {
             abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
@@ -15,13 +17,15 @@ android {
 
         externalNativeBuild {
             ndkBuild {
-                arguments 'APP_PLATFORM=android-28'
+                // NDK r26 is the last release that supports android-19 as a build platform.
+                arguments 'APP_PLATFORM=android-19'
             }
         }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-    ndkVersion = '28.2.13676358'
+    // NDK r26+ requires API 21+; r25c is the last release with android-19 crt objects.
+    ndkVersion = '25.2.9519653'
     externalNativeBuild {
         ndkBuild {
             path = file('src/main/jni/Android.mk')
@@ -31,11 +35,16 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    kotlinOptions {
+        jvmTarget = '11'
+        // toHexString() is experimental in Kotlin 2.0's stdlib (stable from 2.2 upstream).
+        freeCompilerArgs += '-opt-in=kotlin.ExperimentalStdlibApi'
+    }
 }
 dependencies {
-    implementation libs.androidx.app
+    implementation 'androidx.annotation:annotation:1.7.1'
     implementation libs.bouncycastle
     implementation libs.jmdns
     testImplementation libs.junit
-    testImplementation 'org.robolectric:robolectric:4.17'
+    testImplementation 'org.robolectric:robolectric:4.12.2'
 }

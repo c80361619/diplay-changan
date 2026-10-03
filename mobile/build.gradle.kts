@@ -1,6 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.android)
 }
 
 // Optional local-only input. CI and ordinary source builds contain no accessory identity.
@@ -9,16 +9,17 @@ val localAuthenticationAssets = providers.environmentVariable("DIPLAY_AUTH_ASSET
 
 android {
     namespace = "com.shilapi.xcertplay"
-    compileSdk {
-        version = release(37)
-    }
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.shihab.diplay"
-        minSdk = 28
-        targetSdk = 37
+        // KitKat port: wired CarPlay targets API 19+ (Android 4.4).
+        minSdk = 19
+        targetSdk = 19
         versionCode = 29
-        versionName = "0.2.10"
+        versionName = "0.2.10-kitkat"
+        // BouncyCastle + jmdns + the protocol stack exceed 64K methods.
+        multiDexEnabled = true
 
     }
 
@@ -43,43 +44,38 @@ android {
             versionNameSuffix = "-hud-test"
         }
         release {
-            optimization {
-                enable = false
-            }
+            isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("release")
         }
+    }
+    lint {
+        // Sideloaded onto head units, never published to Play: the targetSdk floor does not apply.
+        disable += "ExpiredTargetSdkVersion"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    buildFeatures {
-        compose = true
+    kotlinOptions {
+        jvmTarget = "11"
     }
 }
 
 dependencies {
-    implementation(platform(libs.androidx.compose.bom))
     implementation(project(":common"))
     implementation(project(":shared"))
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.app.projected)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.activity)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    debugImplementation(libs.androidx.compose.ui.tooling)
 }
 
 // No implicit import. Only the two explicitly selected local runtime assets are allowed.
 val credentialAssets = files(android.sourceSets.flatMap { source ->
-    source.assets.directories.map { directory ->
-        fileTree(directory) {
-            include("**/offline-mfi/**", "**/*.pk8", "**/*.p7b", "**/*.key",
-                "**/*.pem", "**/*.p12", "**/*.pfx", "**/*.jks", "**/*.keystore")
-        }
+    source.assets.srcDirs
+}.map { directory ->
+    fileTree(directory) {
+        include("**/offline-mfi/**", "**/*.pk8", "**/*.p7b", "**/*.key",
+            "**/*.pem", "**/*.p12", "**/*.pfx", "**/*.jks", "**/*.keystore")
     }
 })
 val rejectBundledCredentials by tasks.registering {

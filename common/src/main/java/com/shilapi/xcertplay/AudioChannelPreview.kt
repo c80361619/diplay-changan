@@ -40,7 +40,7 @@ internal class AudioChannelPreview(private val onUnavailable: (Int) -> Unit) : C
                 )
                 check(minimum > 0) { "No PCM output buffer is available" }
                 val bufferBytes = maxOf(minimum, SAMPLE_RATE / 10 * 2)
-                val built = if (channel == 0) {
+                val built = if (channel == 0 && android.os.Build.VERSION.SDK_INT >= 23) {
                     AudioTrack.Builder()
                         .setAudioAttributes(
                             AudioAttributes.Builder()
@@ -61,22 +61,31 @@ internal class AudioChannelPreview(private val onUnavailable: (Int) -> Unit) : C
                         .setBufferSizeInBytes(bufferBytes)
                         .build()
                 } else {
-                    // Match playback and let the head unit handle vendor-specific stream types.
+                    // KitKat has no AudioTrack.Builder: channel 0 falls back to STREAM_MUSIC.
                     @Suppress("DEPRECATION")
-                    AudioTrack(channel, SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO,
+                    AudioTrack(if (channel == 0) android.media.AudioManager.STREAM_MUSIC else channel,
+                        SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO,
                         AudioFormat.ENCODING_PCM_16BIT, bufferBytes, AudioTrack.MODE_STREAM)
                 }
                 track = built
                 check(built.state == AudioTrack.STATE_INITIALIZED) { "Audio output did not initialize" }
                 if (closed || generation.get() != request) return@submit
                 activeTrack.set(built)
-                built.setVolume(0.6f)
+                // AudioTrack.setVolume(float) is API 21; KitKat uses the stereo form.
+                if (android.os.Build.VERSION.SDK_INT >= 21) built.setVolume(0.6f)
+                else built.setStereoVolume(0.6f, 0.6f)
                 built.play()
                 var written = 0
                 while (written < pcm.size && !closed && generation.get() == request) {
-                    val count = built.write(
-                        pcm, written, minOf(4096, pcm.size - written), AudioTrack.WRITE_BLOCKING,
-                    )
+                    // write(byte[], int, int, writeMode) is API 21; KitKat's three-arg write blocks too.
+                    val count = if (android.os.Build.VERSION.SDK_INT >= 21) {
+                        built.write(
+                            pcm, written, minOf(4096, pcm.size - written), AudioTrack.WRITE_BLOCKING,
+                        )
+                    } else {
+                        @Suppress("DEPRECATION")
+                        built.write(pcm, written, minOf(4096, pcm.size - written))
+                    }
                     check(count > 0) { "Could not write preview tone" }
                     written += count
                 }

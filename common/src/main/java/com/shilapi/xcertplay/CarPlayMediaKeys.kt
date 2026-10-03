@@ -1,15 +1,17 @@
 package com.shilapi.xcertplay
 
+import com.shilapi.xcertplay.compat.getSystemServiceCompat
+import com.shilapi.xcertplay.compat.AudioFocusHandle
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.AudioAttributes
-import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -47,7 +49,7 @@ internal object CarPlayMediaKeys {
     private var artworkOwner: Any? = null
     private var controller: CarPlayController? = null
     private var session: MediaSession? = null
-    private var focusRequest: AudioFocusRequest? = null
+    private var focus: AudioFocusHandle? = null
     private var focusHeld = false
     private var appContext: Context? = null
     private var mediaAudioActive = false
@@ -137,10 +139,10 @@ internal object CarPlayMediaKeys {
     // keys. When CarPlay starts playing again it becomes the car's media source again, as any player
     // would; only the start counts, so a car source picked while the iPhone plays on is not undone.
     private fun regainFocusLocked() {
-        val request = focusRequest ?: return
+        val handle = focus ?: return
         if (focusHeld) return
-        val audio = appContext?.getSystemService(AudioManager::class.java) ?: return
-        focusHeld = audio.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        focusHeld = handle.request(AudioAttributes.USAGE_MEDIA, AudioAttributes.CONTENT_TYPE_MUSIC,
+            AudioManager.AUDIOFOCUS_GAIN, mainHandler)
         Log.i(TAG, "audio focus regained=$focusHeld")
     }
 
@@ -153,23 +155,18 @@ internal object CarPlayMediaKeys {
     }
 
     private fun start(context: Context) {
-        val audio = context.getSystemService(AudioManager::class.java)
-        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build(),
-            )
-            .setOnAudioFocusChangeListener({ change ->
+        val audio = context.getSystemServiceCompat(AudioManager::class.java) ?: return
+        val handle = AudioFocusHandle(audio,
+            AudioManager.OnAudioFocusChangeListener { change ->
                 Log.i(TAG, "audio focus change=$change")
                 // Only a permanent loss moves the car's media keys elsewhere; transient losses come back.
                 if (change == AudioManager.AUDIOFOCUS_LOSS) synchronized(this) { focusHeld = false }
-            }, mainHandler)
-            .build()
-        val granted = audio?.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        focusRequest = request
+            })
+        val granted = handle.request(AudioAttributes.USAGE_MEDIA, AudioAttributes.CONTENT_TYPE_MUSIC,
+            AudioManager.AUDIOFOCUS_GAIN, mainHandler)
+        focus = handle
         focusHeld = granted
+        if (Build.VERSION.SDK_INT < 21) return // No MediaSession on KitKat; wheel keys stay local.
         session = MediaSession(context, "DiPlay CarPlay").apply {
             setCallback(callback, mainHandler)
             setMetadata(androidMetadata(nowPlaying, artwork))
@@ -190,8 +187,8 @@ internal object CarPlayMediaKeys {
         nowPlaying = CarPlayNowPlaying()
         artwork = null
         artworkCache.clear()
-        focusRequest?.let { request -> appContext?.getSystemService(AudioManager::class.java)?.abandonAudioFocusRequest(request) }
-        focusRequest = null
+        focus?.abandon()
+        focus = null
         focusHeld = false
     }
 
@@ -227,7 +224,8 @@ internal object CarPlayMediaKeys {
         Log.i(TAG, "media key $source -> CarPlay $index sent=$sent")
     }
 
-    private val callback = CarPlayMediaCallback(::send)
+    // Lazy: MediaSession.Callback is API 21; class-load on KitKat must not instantiate it.
+    private val callback: CarPlayMediaCallback by lazy { CarPlayMediaCallback(::send) }
 
     internal fun androidMetadata(info: CarPlayNowPlaying, artwork: Bitmap? = null): MediaMetadata =
         MediaMetadata.Builder().apply {

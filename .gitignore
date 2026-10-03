@@ -38,3 +38,8 @@ release-signing.properties
 *.key
 *.apk
 *.aab
+
+# KitKat build environment (local only)
+local.properties
+build/
+.gradle/

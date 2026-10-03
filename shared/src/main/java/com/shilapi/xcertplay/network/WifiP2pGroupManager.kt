@@ -1,5 +1,7 @@
 package com.shilapi.xcertplay.network
 
+import com.shilapi.xcertplay.compat.checkSelfPermissionCompat
+import com.shilapi.xcertplay.compat.getSystemServiceCompat
 import android.Manifest
 import android.app.AppOpsManager
 import android.content.Context
@@ -41,7 +43,7 @@ class WifiP2pGroupManager(
     private val diagnostic: (String) -> Unit = {},
 ) : WirelessHotspotManager {
     private val appContext = context.applicationContext
-    private val p2pManager = appContext.getSystemService(WifiP2pManager::class.java)
+    private val p2pManager = appContext.getSystemServiceCompat(WifiP2pManager::class.java)
         ?: throw IllegalStateException("WifiP2pManager is unavailable")
     private val stateLock = Object()
     private val random = SecureRandom()
@@ -503,22 +505,22 @@ class WifiP2pGroupManager(
 
     @Suppress("DEPRECATION")
     private fun readStation(): Station = runCatching {
-        val info = appContext.getSystemService(WifiManager::class.java)?.connectionInfo
+        val info = appContext.getSystemServiceCompat(WifiManager::class.java)?.connectionInfo
         Station(info?.supplicantState, info?.frequency?.takeIf { it > 0 })
     }.getOrDefault(Station(null, null))
 
     private fun checkPrerequisites(station: Station) {
-        val wifi = appContext.getSystemService(WifiManager::class.java)
+        val wifi = appContext.getSystemServiceCompat(WifiManager::class.java)
         val fiveGhzSupported = runCatching { wifi?.is5GHzBandSupported }.getOrNull()
         val wifiEnabled = runCatching { wifi?.isWifiEnabled }.getOrNull()
         val locationEnabled = runCatching {
-            appContext.getSystemService(LocationManager::class.java)?.isLocationEnabled
+            appContext.getSystemServiceCompat(LocationManager::class.java)?.isLocationEnabled
         }.getOrNull()
         val required = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.NEARBY_WIFI_DEVICES
             else Manifest.permission.ACCESS_FINE_LOCATION
-        val granted = appContext.checkSelfPermission(required) == PackageManager.PERMISSION_GRANTED
+        val granted = appContext.checkSelfPermissionCompat(required)
         val locationAccessMode = if (Build.VERSION.SDK_INT in 29..32) runCatching {
-            appContext.getSystemService(AppOpsManager::class.java)?.unsafeCheckOpNoThrow(
+            appContext.getSystemServiceCompat(AppOpsManager::class.java)?.unsafeCheckOpNoThrow(
                 AppOpsManager.OPSTR_FINE_LOCATION, android.os.Process.myUid(), appContext.packageName)
         }.getOrNull() else null
         diagnostic("Wi-Fi P2P preflight wifiEnabled=$wifiEnabled locationEnabled=$locationEnabled permissionGranted=$granted locationAccessMode=${locationAccessMode ?: "unknown"} stationMHz=${station.alignmentFrequency ?: "unknown"} stationState=${station.state ?: "unknown"} reportedStationMHz=${station.reportedFrequency ?: "unknown"} fiveGhzSupported=${fiveGhzSupported ?: "unknown"}")
@@ -554,22 +556,30 @@ class WifiP2pGroupManager(
 
     private fun groupSecurity(group: WifiP2pGroup): Iap2WirelessSecurity {
         if (Build.VERSION.SDK_INT < 36) return Iap2WirelessSecurity.WPA_WPA2
-        return when (group.securityType) {
-            WifiP2pGroup.SECURITY_TYPE_WPA2_PSK -> Iap2WirelessSecurity.WPA_WPA2
-            WifiP2pGroup.SECURITY_TYPE_WPA3_COMPATIBILITY ->
+        // securityType and its constants are API 36, absent from the compileSdk-34 stub: reflect.
+        val securityType = try {
+            WifiP2pGroup::class.java.getMethod("getSecurityType").invoke(group) as? Int
+        } catch (_: ReflectiveOperationException) {
+            null
+        } ?: return Iap2WirelessSecurity.WPA_WPA2
+        fun constant(name: String): Int =
+            (WifiP2pGroup::class.java.getField(name).get(null) as Number).toInt()
+        return when (securityType) {
+            constant("SECURITY_TYPE_WPA2_PSK") -> Iap2WirelessSecurity.WPA_WPA2
+            constant("SECURITY_TYPE_WPA3_COMPATIBILITY") ->
                 Iap2WirelessSecurity.WPA3_TRANSITION
-            WifiP2pGroup.SECURITY_TYPE_WPA3_SAE -> Iap2WirelessSecurity.WPA3_ONLY
+            constant("SECURITY_TYPE_WPA3_SAE") -> Iap2WirelessSecurity.WPA3_ONLY
             // Several vendor supplicants report an authentication key management the framework
             // cannot classify, which surfaces as UNKNOWN rather than as a concrete cipher suite.
             // The group itself is still the plain WPA2-PSK group this device creates by default,
             // so keep the assumption every older Android release relies on instead of aborting a
             // bring-up that has already resolved its SSID, band, interface and host address.
-            WifiP2pGroup.SECURITY_TYPE_UNKNOWN -> {
+            constant("SECURITY_TYPE_UNKNOWN") -> {
                 diagnostic("Wi-Fi P2P security type not reported by the framework; assuming WPA2-PSK")
                 Iap2WirelessSecurity.WPA_WPA2
             }
             else -> throw IOException(
-                "Unsupported Wi-Fi P2P security type: ${group.securityType}",
+                "Unsupported Wi-Fi P2P security type: $securityType",
             )
         }
     }
@@ -686,12 +696,18 @@ class WifiP2pGroupManager(
     private fun remainingNanos(deadlineNanos: Long): Long =
         (deadlineNanos - System.nanoTime()).coerceAtLeast(0L)
 
-    private fun failureReason(reason: Int): String = when (reason) {
-        WifiP2pManager.P2P_UNSUPPORTED -> "Wi-Fi P2P is unsupported"
-        WifiP2pManager.BUSY -> "Wi-Fi P2P is busy"
-        WifiP2pManager.ERROR -> "generic error"
-        WifiP2pManager.NO_PERMISSION -> "permission denied"
-        else -> "reason $reason"
+    private fun failureReason(reason: Int): String {
+        // NO_PERMISSION is hidden from the compileSdk-34 stub (public since 36): reflect it.
+        val noPermission = runCatching {
+            (WifiP2pManager::class.java.getField("NO_PERMISSION").get(null) as Number).toInt()
+        }.getOrDefault(1)
+        return when (reason) {
+            WifiP2pManager.P2P_UNSUPPORTED -> "Wi-Fi P2P is unsupported"
+            WifiP2pManager.BUSY -> "Wi-Fi P2P is busy"
+            WifiP2pManager.ERROR -> "generic error"
+            noPermission -> "permission denied"
+            else -> "reason $reason"
+        }
     }
 
     private fun is5Ghz(frequencyMHz: Int): Boolean = frequencyMHz in 5150..5895

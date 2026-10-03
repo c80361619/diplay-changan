@@ -1,5 +1,6 @@
 package com.shilapi.xcertplay.network
 
+import com.shilapi.xcertplay.compat.getSystemServiceCompat
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.ConnectivityManager
@@ -40,8 +41,8 @@ class ManualHotspotManager(
 ) : WirelessHotspotManager {
     private val appContext = context.applicationContext
     private val connectivityManager =
-        appContext.getSystemService(ConnectivityManager::class.java)
-    private val wifiManager = appContext.getSystemService(WifiManager::class.java)
+        appContext.getSystemServiceCompat(ConnectivityManager::class.java)
+    private val wifiManager = appContext.getSystemServiceCompat(WifiManager::class.java)
         ?: throw IllegalStateException("WifiManager is unavailable")
     private val expectedSsid = ssid
     private val passphrase = passphrase
@@ -295,8 +296,11 @@ class ManualHotspotManager(
             val ssid = configuration.ssid ?: return null
             val bandAndChannel = when {
                 Build.VERSION.SDK_INT >= 36 -> {
-                    val channels = configuration.channels
-                    if (channels.size() == 0) null else channels.keyAt(0) to channels.valueAt(0)
+                    // getChannels() is API 36, absent from the compileSdk-34 stub: reflect it.
+                    val channels = SoftApConfiguration::class.java.getMethod("getChannels")
+                        .invoke(configuration) as android.util.SparseArray<*>
+                    if (channels.size() == 0) null
+                    else (channels.keyAt(0) as Int) to (channels.valueAt(0) as? Number)?.toInt()
                 }
                 else -> {
                     val band = (

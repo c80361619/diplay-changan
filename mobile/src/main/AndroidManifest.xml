@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <application
+        android:name="com.shilapi.xcertplay.DiPlayApplication"
         android:allowBackup="false"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -18,8 +19,6 @@
             android:enabled="true"
             tools:replace="android:enabled" />
 
-        <service android:name="com.shilapi.xcertplay.shared.MyCarAppService" tools:node="remove" />
-        <meta-data android:name="androidx.car.app.minCarApiLevel" tools:node="remove" />
     </application>
 
 </manifest>

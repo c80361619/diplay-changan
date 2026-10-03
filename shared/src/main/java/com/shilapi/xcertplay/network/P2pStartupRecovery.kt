@@ -50,6 +50,11 @@ internal object P2pStartupRecovery {
     ): P2pCreationRequest {
         val modes = plan(stationFrequency, preferred)
         var lastRejection: P2pCreateRejected? = null
+        // WifiP2pManager.NO_PERMISSION is hidden from the compileSdk-34 stub (public since 36):
+        // read the runtime constant, falling back to its stable AOSP value 1.
+        val noPermissionReason = runCatching {
+            (WifiP2pManager::class.java.getField("NO_PERMISSION").get(null) as Number).toInt()
+        }.getOrDefault(1)
         for ((index, mode) in modes.withIndex()) {
             var retriedBusy = false
             while (true) {
@@ -61,7 +66,7 @@ internal object P2pStartupRecovery {
                     when {
                         // A rejection that is not tied to one channel cannot be fixed by asking
                         // for a different channel, and retrying would only stall the bring-up.
-                        failure.reason == WifiP2pManager.NO_PERMISSION ||
+                        failure.reason == noPermissionReason ||
                             failure.reason == WifiP2pManager.P2P_UNSUPPORTED -> throw failure
                         failure.reason == WifiP2pManager.BUSY && !retriedBusy -> {
                             retriedBusy = true
