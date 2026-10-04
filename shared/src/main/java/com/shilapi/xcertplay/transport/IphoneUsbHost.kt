@@ -12,6 +12,7 @@ import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
+import android.annotation.SuppressLint
 import android.hardware.usb.UsbRequest
 import android.os.Build
 import android.util.Log
@@ -239,23 +240,46 @@ class IphoneUsbHost(
             ?: throw IphoneUsbException.DeviceUnavailable("UsbManager could not open the iPhone")
         var claimedInterface: UsbInterface? = null
         try {
-            val configuration = IphoneCarPlayConfiguration.find(device)
+            // KitKat has no UsbConfiguration API: the host already selected the device's
+            // default configuration, which is configuration 1 (USBMUX + NCM) on iPhones.
+            if (Build.VERSION.SDK_INT >= 21) {
+                val configuration = IphoneCarPlayConfiguration.find(device)
+                    ?: throw IphoneUsbException.Protocol(
+                        "Re-enumerated iPhone exposes no USBMUX CarPlay configuration",
+                    )
+                if (!connection.setConfiguration(configuration)) {
+                    Log.w(
+                        IphoneCarPlayConfiguration.TAG,
+                        "setConfiguration ${configuration.id} reported failure; claiming anyway",
+                    )
+                }
+                val usbMux = IphoneCarPlayConfiguration.usbMuxInterface(configuration)
+                    ?: throw IphoneUsbException.Protocol("CarPlay configuration exposes no USBMUX interface")
+                val endpoints = IphoneCarPlayConfiguration.usbMuxEndpoints(usbMux)
+                    ?: throw IphoneUsbException.Protocol("USBMUX interface exposes no bulk endpoint pair")
+                Log.i(
+                    IphoneCarPlayConfiguration.TAG,
+                    "usbmux config=${configuration.id} iface=${usbMux.id} alt=${usbMux.alternateSetting} " +
+                        "class=${usbMux.interfaceClass}/${usbMux.interfaceSubclass}/${usbMux.interfaceProtocol} " +
+                        "endpoints=${usbMux.endpointCount} " +
+                        "out=${describeUsbEndpoint(endpoints.first)} " +
+                        "in=${describeUsbEndpoint(endpoints.second)}",
+                )
+                if (!connection.claimInterface(usbMux, true)) {
+                    throw IphoneUsbException.DeviceUnavailable("Android could not claim USBMUX interface 1")
+                }
+                claimedInterface = usbMux
+                return Iap2UsbSession(connection, endpoints.first, endpoints.second)
+            }
+            val usbMux = IphoneCarPlayConfiguration.findKitKatUsbMux(device)
                 ?: throw IphoneUsbException.Protocol(
                     "Re-enumerated iPhone exposes no USBMUX CarPlay configuration",
                 )
-            if (!connection.setConfiguration(configuration)) {
-                Log.w(
-                    IphoneCarPlayConfiguration.TAG,
-                    "setConfiguration ${configuration.id} reported failure; claiming anyway",
-                )
-            }
-            val usbMux = IphoneCarPlayConfiguration.usbMuxInterface(configuration)
-                ?: throw IphoneUsbException.Protocol("CarPlay configuration exposes no USBMUX interface")
             val endpoints = IphoneCarPlayConfiguration.usbMuxEndpoints(usbMux)
                 ?: throw IphoneUsbException.Protocol("USBMUX interface exposes no bulk endpoint pair")
             Log.i(
                 IphoneCarPlayConfiguration.TAG,
-                "usbmux config=${configuration.id} iface=${usbMux.id} alt=${usbMux.alternateSetting} " +
+                "usbmux config=default iface=${usbMux.id} alt=0 " +
                     "class=${usbMux.interfaceClass}/${usbMux.interfaceSubclass}/${usbMux.interfaceProtocol} " +
                     "endpoints=${usbMux.endpointCount} " +
                     "out=${describeUsbEndpoint(endpoints.first)} " +
@@ -354,6 +378,18 @@ class Iap2UsbSession internal constructor(
     fun read(timeoutMillis: Long): ByteArray? = synchronized(readLock) {
         checkOpen()
         require(timeoutMillis > 0) { "timeoutMillis must be positive" }
+        // KitKat has no async ByteBuffer queue (UsbRequest.queue(ByteBuffer) is API 26):
+        // a synchronous bulkTransfer has the same timeout semantics and blocks this thread.
+        if (Build.VERSION.SDK_INT < 26) {
+            val buffer = ByteArray(USBMUX_READ_CHUNK_BYTES)
+            val transferred = try {
+                connection.bulkTransfer(inEndpoint, buffer, buffer.size, timeoutMillis.toInt())
+            } catch (error: RuntimeException) {
+                throw failSession("USBMUX read failed", error)
+            }
+            if (transferred < 0) return@synchronized null
+            return@synchronized buffer.copyOf(transferred)
+        }
         val request = UsbRequest()
         var initialized = false
         try {
@@ -421,6 +457,7 @@ class Iap2UsbSession internal constructor(
         if (closed) throw IphoneUsbException.DeviceUnavailable("USBMUX session is closed")
     }
 
+    @SuppressLint("NewApi")
     private fun drainCancelledRead(request: UsbRequest) {
         if (!request.cancel()) {
             throw failSession("Android could not cancel timed out USBMUX read request")

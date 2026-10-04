@@ -1,5 +1,7 @@
 package com.shilapi.xcertplay.network
 
+import android.annotation.SuppressLint
+import androidx.annotation.RequiresApi
 import com.shilapi.xcertplay.compat.getSystemServiceCompat
 import android.content.Context
 import android.net.nsd.NsdManager
@@ -132,7 +134,8 @@ class CarPlayBonjour(
     private val services = LinkedBlockingQueue<NsdServiceInfo>()
     private val interfaceServices = LinkedBlockingQueue<Pair<CarPlayBonjourEndpoint, InetAddress>>()
     private val discoveryEvents = LinkedBlockingQueue<CarPlayBonjourEvent.Discovery>(32)
-    private val seenServices = ConcurrentHashMap.newKeySet<String>()
+    // ConcurrentHashMap.newKeySet is API 24; Collections.newSetFromMap covers KitKat.
+    private val seenServices: MutableSet<String> = java.util.Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
     private val lifecycleLock = Any()
     private val localAdvertisedAddress = advertisedHostAddress()
     private val multicastLock = (context.applicationContext ?: context)
@@ -238,11 +241,19 @@ class CarPlayBonjour(
             started = true
             try {
                 multicastLock.acquire()
-                if (useInterfaceMdns) {
-                    val address = requireNotNull(localAdvertisedAddress) {
-                        "Interface mDNS requires a local advertised address"
+                // KitKat's NsdManager cannot publish TXT records (setAttribute is API 21), and
+                // the AirPlay TXT blob is what makes the iPhone connect: use JmDNS on < 21.
+                if (useInterfaceMdns || Build.VERSION.SDK_INT < 21) {
+                    val address = if (useInterfaceMdns) {
+                        requireNotNull(localAdvertisedAddress) {
+                            "Interface mDNS requires a local advertised address"
+                        }
+                    } else {
+                        null
                     }
-                    val dns = JmDNS.create(address, "carplay-${config.deviceId.replace(":", "")}")
+                    val dns = address
+                        ?.let { JmDNS.create(it, "carplay-${config.deviceId.replace(":", "")}") }
+                        ?: JmDNS.create("carplay-${config.deviceId.replace(":", "")}")
                     interfaceMdns = dns
                     dns.addServiceListener("$CARPLAY_CONTROL_SERVICE_TYPE.local.", interfaceListener)
                     dns.registerService(ServiceInfo.create(
@@ -313,6 +324,7 @@ class CarPlayBonjour(
         workerToJoin?.let(::joinWorker)
     }
 
+    @RequiresApi(21)
     @Suppress("DEPRECATION")
     private fun registerAirPlay() {
         val serviceInfo = NsdServiceInfo().apply {
@@ -349,7 +361,8 @@ class CarPlayBonjour(
 
     private fun runWorker() {
         while (!closed) {
-            if (useInterfaceMdns) {
+            // The same condition as start(): KitKat always runs the JmDNS path.
+            if (useInterfaceMdns || Build.VERSION.SDK_INT < 21) {
                 try {
                     while (true) emit(discoveryEvents.poll() ?: break)
                     val (endpoint, address) = interfaceServices.poll(
@@ -380,6 +393,7 @@ class CarPlayBonjour(
         }
     }
 
+    @SuppressLint("NewApi")
     private fun handleService(service: NsdServiceInfo) {
         val resolved = resolveWithRetry(service) ?: return
         val address = preferredAddress(resolved) ?: return

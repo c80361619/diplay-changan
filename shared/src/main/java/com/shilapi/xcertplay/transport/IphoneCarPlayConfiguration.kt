@@ -5,6 +5,7 @@ import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
+import androidx.annotation.RequiresApi
 import android.util.Log
 
 /**
@@ -27,6 +28,7 @@ object IphoneCarPlayConfiguration {
     private const val PREFERRED_USBMUX_OUT = 0x04
     private const val PREFERRED_USBMUX_IN = 0x85
 
+    @RequiresApi(21)
     fun find(device: UsbDevice): UsbConfiguration? {
         val configurations = (0 until device.configurationCount).map(device::getConfiguration)
         val chosen = configurations.firstOrNull { usbMuxInterface(it) != null && hasCdcNcm(it) && hasAppleEthernet(it) }
@@ -39,6 +41,19 @@ object IphoneCarPlayConfiguration {
         return chosen
     }
 
+    /**
+     * KitKat has no UsbConfiguration API: the interfaces the host exposes are those of the
+     * device's default configuration. iPhones put USBMUX, NCM and the Apple Ethernet function
+     * on configuration 1, so matching the USBMUX interface there is sufficient.
+     */
+    fun findKitKatUsbMux(device: UsbDevice): UsbInterface? =
+        (0 until device.interfaceCount).map(device::getInterface).firstOrNull {
+            it.interfaceClass == USBMUX_CLASS &&
+                it.interfaceSubclass == USBMUX_SUBCLASS &&
+                it.interfaceProtocol == USBMUX_PROTOCOL
+        }
+
+    @RequiresApi(21)
     fun describe(configuration: UsbConfiguration): String =
         (0 until configuration.interfaceCount).joinToString(",") { index ->
             val usbInterface = configuration.getInterface(index)
@@ -49,6 +64,7 @@ object IphoneCarPlayConfiguration {
                 "x${usbInterface.endpointCount}"
         }
 
+    @RequiresApi(21)
     fun usbMuxInterface(configuration: UsbConfiguration): UsbInterface? =
         (0 until configuration.interfaceCount).map(configuration::getInterface).firstOrNull {
             it.interfaceClass == USBMUX_CLASS &&
@@ -77,11 +93,13 @@ object IphoneCarPlayConfiguration {
         return if (out != null && input != null) out to input else null
     }
 
+    @RequiresApi(21)
     private fun hasCdcNcm(configuration: UsbConfiguration): Boolean =
         (0 until configuration.interfaceCount).map(configuration::getInterface).any {
             it.interfaceClass == NCM_CONTROL_CLASS && it.interfaceSubclass == NCM_CONTROL_SUBCLASS
         }
 
+    @RequiresApi(21)
     private fun hasAppleEthernet(configuration: UsbConfiguration): Boolean =
         (0 until configuration.interfaceCount).map(configuration::getInterface).any {
             it.interfaceClass == APPLE_ETHERNET_CLASS &&

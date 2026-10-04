@@ -1,6 +1,7 @@
 package com.shilapi.xcertplay.media
 
 import android.media.AudioFormat as AndroidAudioFormat
+import android.annotation.SuppressLint
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
@@ -194,7 +195,13 @@ internal class MicrophoneUplink(
         try {
             while (running.get()) {
                 stats.reading()
-                val count = recorder.read(readBuffer, 0, readBuffer.size, AudioRecord.READ_BLOCKING)
+                // read(byte[], int, int, readMode) is API 23; the three-arg read blocks too.
+                val count = if (Build.VERSION.SDK_INT >= 23) {
+                    recorder.read(readBuffer, 0, readBuffer.size, AudioRecord.READ_BLOCKING)
+                } else {
+                    @Suppress("DEPRECATION")
+                    recorder.read(readBuffer, 0, readBuffer.size)
+                }
                 stats.read(count)
                 if (count < 0) {
                     if (running.get()) {
@@ -271,6 +278,7 @@ internal class MicrophoneUplink(
         }
     }
 
+    @SuppressLint("NewApi")
     private fun routeType(recorder: AudioRecord): Int? = runCatching { recorder.routedDevice?.type }.getOrNull()
 
     override fun close() {

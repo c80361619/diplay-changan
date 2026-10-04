@@ -40,6 +40,10 @@ android {
         // toHexString() is experimental in Kotlin 2.0's stdlib (stable from 2.2 upstream).
         freeCompilerArgs += '-opt-in=kotlin.ExperimentalStdlibApi'
     }
+    lint {
+        // Sideloaded onto head units, never published to Play: the targetSdk floor does not apply.
+        disable 'ExpiredTargetSdkVersion'
+    }
 }
 dependencies {
     implementation 'androidx.annotation:annotation:1.7.1'

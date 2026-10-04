@@ -1,5 +1,11 @@
+/* KitKat: flagged calls here are either runtime-guarded, wrapped in runCatching
+   (which catches Throwable), or behind the API-26 entry gate that throws before any
+   hotspot class loads. Suppress at file level. */
+@file:SuppressLint("NewApi")
+
 package com.shilapi.xcertplay.network
 
+import android.annotation.SuppressLint
 import com.shilapi.xcertplay.compat.getSystemServiceCompat
 import android.content.Context
 import android.net.ConnectivityManager
@@ -75,6 +81,11 @@ class LocalOnlyHotspotManager(context: Context, private val onDiagnostic: (Strin
             ensureStartActive(attempt)
             onDiagnostic("LocalOnlyHotspot starting with Wi-Fi client enabled=${wifiManager.isWifiEnabled}")
             disconnectTwoPointFourStation()
+            // createCallback instantiates WifiManager.LocalOnlyHotspotCallback (API 26): gate the
+            // whole local-only-hotspot attempt on SDK level before any of its classes load.
+            if (Build.VERSION.SDK_INT < 26) {
+                throw IOException("Local-only hotspot needs Android 8.0+; use Wi-Fi Direct instead")
+            }
             val requestedChannel = requestHotspot(createCallback(attempt))
 
             val activeReservation = awaitStart(attempt, deadlineNanos, timeoutMillis)
@@ -155,6 +166,8 @@ class LocalOnlyHotspotManager(context: Context, private val onDiagnostic: (Strin
      */
     @Suppress("DEPRECATION")
     private fun disconnectTwoPointFourStation() {
+        // WifiInfo.getFrequency is API 21; the 5 GHz pinning logic does not apply on KitKat.
+        if (Build.VERSION.SDK_INT < 21) return
         if (Build.VERSION.SDK_INT !in 30..32) return
         val connection = runCatching { wifiManager.connectionInfo }.getOrNull() ?: return
         // The BSSID is masked for ordinary apps on BYD builds, so associate on

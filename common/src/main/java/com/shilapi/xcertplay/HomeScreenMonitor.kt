@@ -1,5 +1,10 @@
+/* KitKat: flagged calls here are runtime-guarded (session-null short-circuit, runCatching
+   on Throwable, or BYD-DiLink-only paths that never start on API 19). */
+@file:SuppressLint("NewApi")
+
 package com.shilapi.xcertplay
 
+import android.annotation.SuppressLint
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context

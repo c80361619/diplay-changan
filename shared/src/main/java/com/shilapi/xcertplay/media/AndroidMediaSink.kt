@@ -1,5 +1,8 @@
 package com.shilapi.xcertplay.media
 
+import androidx.annotation.RequiresApi
+import com.shilapi.xcertplay.compat.inputBufferCompat
+import com.shilapi.xcertplay.compat.outputBufferCompat
 import com.shilapi.xcertplay.compat.AudioFocusHandle
 import com.shilapi.xcertplay.compat.getSystemServiceCompat
 import android.content.Context
@@ -290,7 +293,7 @@ class AndroidMediaSink(
         // This callback runs on the downlink thread; microphone failures must not stop playback.
         try {
             if (config.audioType == "telephony") enterCommunicationMode(id)
-            val uplink = microphoneUplinks.computeIfAbsent(id) { MicrophoneUplink(config, onAudioDiagnostic) }
+            val uplink = microphoneUplinks.getOrPut(id) { MicrophoneUplink(config, onAudioDiagnostic) }
             if (!uplink.start()) {
                 microphoneUplinks.remove(id, uplink)
                 restoreAudioMode(id)
@@ -366,7 +369,7 @@ class AndroidMediaSink(
     }
 
     private fun videoDecoder(type: Int): VideoDecoder =
-        videoDecoders.computeIfAbsent(type) { newVideoDecoder(type, surfaces[type] ?: defaultSurface) }
+        videoDecoders.getOrPut(type) { newVideoDecoder(type, surfaces[type] ?: defaultSurface) }
 
     private fun newVideoDecoder(type: Int, surface: Surface?, statsLabel: String? = null) = VideoDecoder(
         type,
@@ -651,7 +654,7 @@ private class VideoDecoder(
             dequeue = { codec.dequeueInputBuffer(INPUT_TIMEOUT_US) },
         )
         if (index < 0) { recover("video decoder input stalled"); return }
-        val input = checkNotNull(codec.getInputBuffer(index)) { "Decoder input buffer unavailable" }
+        val input = checkNotNull(codec.inputBufferCompat(index)) { "Decoder input buffer unavailable" }
         input.clear()
         if (annexB.size <= input.remaining()) {
             input.put(annexB)
@@ -829,7 +832,14 @@ private class AudioRenderer(
             packetsReceived.incrementAndGet()
             val now = System.nanoTime()
             val previous = lastArrivalNs.getAndSet(now)
-            if (previous != 0L) maxArrivalGapMs.accumulateAndGet((now - previous) / 1_000_000L, ::maxOf)
+            if (previous != 0L) {
+                // AtomicLong.accumulateAndGet is API 24: a CAS max loop covers KitKat.
+                val gap = (now - previous) / 1_000_000L
+                while (true) {
+                    val current = maxArrivalGapMs.get()
+                    if (gap <= current || maxArrivalGapMs.compareAndSet(current, gap)) break
+                }
+            }
         }
         if (!started || !queue.offer(AudioPacket(rtp, sample))) {
             if (started) packetsDropped.incrementAndGet()
@@ -1007,26 +1017,6 @@ private class AudioRenderer(
         else -> 0
     }
 
-    private fun audioAttributesFor(
-        selection: AudioChannelSelection,
-        streamOverride: Int,
-    ): AudioAttributes {
-        if (streamOverride in AudioManager.STREAM_SYSTEM..AudioManager.STREAM_ACCESSIBILITY) {
-            // Android accepts only its defined legacy stream IDs here. BYD audio policy can
-            // map these standard streams to vehicle outputs; arbitrary channel numbers are
-            // not valid AudioAttributes legacy stream types.
-            try {
-                return AudioAttributes.Builder().setLegacyStreamType(streamOverride).build()
-            } catch (error: Exception) {
-                Log.w(TAG, "legacy audio stream $streamOverride rejected; keeping usage routing", error)
-            }
-        }
-        return AudioAttributes.Builder()
-            .setUsage(usageFor(selection.channel))
-            .setContentType(contentTypeFor(selection.contentType))
-            .build()
-    }
-
     private fun mappedSelection(): AudioChannelSelection {
         val mode = if (advancedAudioChannelMapping) {
             AudioChannelMappingMode.AUTOMOTIVE_BUS
@@ -1040,6 +1030,7 @@ private class AudioRenderer(
         )
     }
 
+    @RequiresApi(21)
     private fun audioAttributesFor(selection: AudioChannelSelection): AudioAttributes =
         AudioAttributes.Builder()
             .setUsage(usageFor(selection.channel))
@@ -1064,7 +1055,9 @@ private class AudioRenderer(
         track?.let(audioFocusCoordinator::release)
     }
 
-    private fun pcmFormat(encoding: Int, channelMask: Int) = AndroidAudioFormat.Builder()
+    @RequiresApi(21)
+    private fun pcmFormat(encoding: Int, channelMask: Int): android.media.AudioFormat =
+        android.media.AudioFormat.Builder()
         .setSampleRate(format.sampleRate)
         .setChannelMask(channelMask)
         .setEncoding(encoding)
@@ -1188,7 +1181,7 @@ private class AudioRenderer(
             }
             return
         }
-        val input = codec.getInputBuffer(index) ?: return
+        val input = codec.inputBufferCompat(index) ?: return
         input.clear()
         if (payload.size <= input.remaining()) {
             input.put(payload)
@@ -1230,7 +1223,7 @@ private class AudioRenderer(
                         }
                     }
                     if (size > 0) {
-                        val output = codec.getOutputBuffer(index)
+                        val output = codec.outputBufferCompat(index)
                         if (output != null) {
                             if (size > pcm.size) pcm = ByteArray(size)
                             output.position(info.offset)
@@ -1270,8 +1263,8 @@ private class AudioRenderer(
                 minOf(length - written, PREBUFFER_WRITE_CHUNK_BYTES)
             }
             val writeStarted = System.nanoTime()
-            // write(byte[], int, int, writeMode) is API 21; KitKat's three-arg write blocks too.
-            val count = if (Build.VERSION.SDK_INT >= 21) {
+            // write(byte[], int, int, writeMode) is API 23; KitKat's three-arg write blocks too.
+            val count = if (Build.VERSION.SDK_INT >= 23) {
                 track.write(data, offset + written, writeLength, AudioTrack.WRITE_BLOCKING)
             } else {
                 @Suppress("DEPRECATION")
@@ -1305,7 +1298,8 @@ private class AudioRenderer(
     }
 
     private fun startPlayback(track: AudioTrack) {
-        underrunsAtPlaybackStart = track.underrunCount
+        // AudioTrack#getUnderrunCount is API 24; KitKat has no underrun counter.
+        underrunsAtPlaybackStart = if (Build.VERSION.SDK_INT >= 24) track.underrunCount else 0
         track.play()
         playbackStarted = true
     }
@@ -1313,7 +1307,8 @@ private class AudioRenderer(
     private fun maintainPlaybackBuffer() {
         val track = track ?: return
         if (bufferProgress.shouldRebuffer(mappedChannel == AudioChannel.MEDIA, playbackStarted,
-                track.underrunCount > underrunsAtPlaybackStart, queue.isEmpty(), track.playbackHeadPosition)) {
+                Build.VERSION.SDK_INT >= 24 && track.underrunCount > underrunsAtPlaybackStart,
+                queue.isEmpty(), track.playbackHeadPosition)) {
             // The hardware buffer has actually drained. Pause without flushing or discarding PCM,
             // then use the configured start threshold again when music resumes.
             track.pause()
@@ -1333,7 +1328,7 @@ private class AudioRenderer(
         val now = System.nanoTime()
         if (statsWindowStartNs == 0L) statsWindowStartNs = now
         if (!force && now - statsWindowStartNs < STATS_WINDOW_NS) return
-        val underruns = track?.underrunCount ?: 0
+        val underruns = track?.let { if (Build.VERSION.SDK_INT >= 24) it.underrunCount else 0 } ?: 0
         val lastRx = lastArrivalNs.get()
         val currentTrack = track
         val playbackHeadFrames = currentTrack?.playbackHeadPosition

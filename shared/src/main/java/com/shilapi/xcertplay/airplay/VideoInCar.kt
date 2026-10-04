@@ -1,7 +1,7 @@
 package com.shilapi.xcertplay.airplay
 
+import com.shilapi.xcertplay.compat.Base64Compat
 import java.math.BigInteger
-import java.util.Base64
 
 /**
  * iOS 27 "video in car": while the car is parked, the iPhone hands the head unit a media URL and
@@ -57,7 +57,7 @@ object VideoInCar {
         var bits = BigInteger.valueOf(legacyFeatures)
         ADDITIONAL_FEATURE_BITS.forEach { bits = bits.setBit(it) }
         val littleEndian = bits.toByteArray().reversedArray().dropLastWhile { it == 0.toByte() }.toByteArray()
-        return Base64.getEncoder().encodeToString(littleEndian)
+        return Base64Compat.encodeToString(littleEndian)
     }
 
     /**

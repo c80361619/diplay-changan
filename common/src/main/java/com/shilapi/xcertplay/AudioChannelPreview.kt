@@ -77,8 +77,8 @@ internal class AudioChannelPreview(private val onUnavailable: (Int) -> Unit) : C
                 built.play()
                 var written = 0
                 while (written < pcm.size && !closed && generation.get() == request) {
-                    // write(byte[], int, int, writeMode) is API 21; KitKat's three-arg write blocks too.
-                    val count = if (android.os.Build.VERSION.SDK_INT >= 21) {
+                    // write(byte[], int, int, writeMode) is API 23; KitKat's three-arg write blocks too.
+                    val count = if (android.os.Build.VERSION.SDK_INT >= 23) {
                         built.write(
                             pcm, written, minOf(4096, pcm.size - written), AudioTrack.WRITE_BLOCKING,
                         )

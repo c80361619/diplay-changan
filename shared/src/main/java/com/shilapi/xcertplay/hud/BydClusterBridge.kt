@@ -1,6 +1,7 @@
 package com.shilapi.xcertplay.hud
 
 import android.content.Context
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
@@ -135,6 +136,7 @@ internal object BydClusterBridge {
     }
 
     // IS_BYD_MAP=true is required: the adapter drops foreign frames while it believes the stock map navigates.
+    @SuppressLint("WrongConstant")
     private fun baseIntent(keyType: Int) = Intent(AMAP_ACTION).apply {
         setPackage(AMAP_PACKAGE)
         addFlags(FLAG_RECEIVER_INCLUDE_BACKGROUND)

@@ -42,6 +42,11 @@ fun Context.checkSelfPermissionCompat(permission: String): Boolean {
     return checkPermission(permission, Process.myPid(), Process.myUid()) == PackageManager.PERMISSION_GRANTED
 }
 
+/** Context.getNoBackupFilesDir is API 21; getDir is the KitKat-equivalent private directory. */
+fun Context.noBackupFilesDirCompat(): java.io.File =
+    if (Build.VERSION.SDK_INT >= 21) noBackupFilesDir
+    else getDir("no_backup", Context.MODE_PRIVATE)
+
 /**
  * Audio focus across API levels: AudioFocusRequest on 26+, the deprecated stream API below.
  * Callers pass usage/contentType as ints (compile-time constants, safe on KitKat): the modern
@@ -98,3 +103,56 @@ fun AudioManager.abandonAudioFocusRequestCompat(request: AudioFocusRequest) {
         abandonAudioFocus(null)
     }
 }
+
+/**
+ * java.util.Base64 is API 26; android.util.Base64 provides the same transformations from API 1.
+ * Decoding uses the lenient DEFAULT mode, which also accepts the MIME forms iPhones send.
+ */
+object Base64Compat {
+    fun encodeToString(data: ByteArray): String =
+        android.util.Base64.encodeToString(data, android.util.Base64.NO_WRAP)
+
+    fun encodeMimeToString(data: ByteArray): String =
+        android.util.Base64.encodeToString(data, android.util.Base64.DEFAULT)
+
+    /** MIME encoder with a custom line length (java.util.Base64.getMimeEncoder(width, newline)). */
+    fun encodeMimeToString64(data: ByteArray, lineLength: Int = 64): String {
+        val flat = android.util.Base64.encodeToString(data, android.util.Base64.NO_WRAP)
+        if (lineLength <= 0) return flat
+        return flat.chunked(lineLength).joinToString("\n")
+    }
+
+    fun decode(text: String): ByteArray =
+        android.util.Base64.decode(text, android.util.Base64.DEFAULT)
+
+    fun decode(data: ByteArray): ByteArray =
+        android.util.Base64.decode(data, android.util.Base64.DEFAULT)
+}
+
+/** MediaCodec#getInputBuffer(int) is API 21; the deprecated buffers array covers KitKat. */
+fun android.media.MediaCodec.inputBufferCompat(index: Int): java.nio.ByteBuffer? =
+    if (Build.VERSION.SDK_INT >= 21) getInputBuffer(index)
+    else @Suppress("DEPRECATION") inputBuffers?.get(index)
+
+/** MediaCodec#getOutputBuffer(int) is API 21; the deprecated buffers array covers KitKat. */
+fun android.media.MediaCodec.outputBufferCompat(index: Int): java.nio.ByteBuffer? =
+    if (Build.VERSION.SDK_INT >= 21) getOutputBuffer(index)
+    else @Suppress("DEPRECATION") outputBuffers?.get(index)
+
+/** UsbInterface#getAlternateSetting is API 21; on KitKat the descriptor value is unknown (0). */
+fun android.hardware.usb.UsbInterface.alternateSettingCompat(): Int =
+    if (Build.VERSION.SDK_INT >= 21) alternateSetting else 0
+
+/**
+ * UsbDeviceConnection#setInterface(UsbInterface) is API 21. The KitKat equivalent issues the
+ * USB standard SET_INTERFACE request (bmRequestType 0x01, bRequest 0x0B) directly.
+ */
+fun android.hardware.usb.UsbDeviceConnection.setInterfaceCompat(
+    usbInterface: android.hardware.usb.UsbInterface,
+    alternateSetting: Int,
+): Boolean =
+    if (Build.VERSION.SDK_INT >= 21) {
+        setInterface(usbInterface)
+    } else {
+        controlTransfer(0x01, 0x0B, alternateSetting, usbInterface.id, null, 0, 1_000) >= 0
+    }

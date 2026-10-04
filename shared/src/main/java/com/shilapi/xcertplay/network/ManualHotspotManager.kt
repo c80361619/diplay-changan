@@ -205,8 +205,11 @@ class ManualHotspotManager(
         } catch (_: SocketException) {
             null
         } ?: return null
-        val primaryInterface = connectivityManager?.activeNetwork
-            ?.let { connectivityManager.getLinkProperties(it)?.interfaceName }
+        // getActiveNetwork is API 23 and getLinkProperties(Network) is API 21: on KitKat there
+        // is no per-network interface lookup, so the primary-interface hint is simply absent.
+        val primaryInterface: String? = if (Build.VERSION.SDK_INT >= 23) {
+            connectivityManager?.activeNetwork?.let { connectivityManager.getLinkProperties(it)?.interfaceName }
+        } else null
         return Collections.list(interfaces)
             .asSequence()
             .filter { isUsableInterface(it, primaryInterface) }
@@ -265,7 +268,8 @@ class ManualHotspotManager(
             null
         } ?: return null
         if (unquote(connectionInfo.ssid) != expectedSsid) return null
-        return connectionInfo.frequency.takeIf { it > 0 }
+        // WifiInfo.getFrequency is API 21; KitKat cannot pin by frequency.
+        return if (Build.VERSION.SDK_INT >= 21) connectionInfo.frequency.takeIf { it > 0 } else null
     }
 
     private fun frequencyFromScanResult(localInterface: LocalHotspotInterface): Int? {

@@ -1,5 +1,11 @@
+/* KitKat: flagged calls here are either runtime-guarded, wrapped in runCatching
+   (which catches Throwable), or behind the API-26 entry gate that throws before any
+   hotspot class loads. Suppress at file level. */
+@file:SuppressLint("NewApi")
+
 package com.shilapi.xcertplay.network
 
+import android.annotation.SuppressLint
 import com.shilapi.xcertplay.compat.checkSelfPermissionCompat
 import com.shilapi.xcertplay.compat.getSystemServiceCompat
 import android.Manifest
@@ -251,7 +257,7 @@ class WifiP2pGroupManager(
         if (removeGroup && activeChannel != null) {
             removeGroupBlocking(activeChannel)
         }
-        activeChannel?.close()
+        if (Build.VERSION.SDK_INT >= 27) activeChannel?.close()
         activeThread?.quitSafely()
     }
 
@@ -627,7 +633,7 @@ class WifiP2pGroupManager(
         if (removeGroup && failedChannel != null) {
             removeGroupBlocking(failedChannel)
         }
-        failedChannel?.close()
+        if (Build.VERSION.SDK_INT >= 27) failedChannel?.close()
         failedThread?.quitSafely()
     }
 

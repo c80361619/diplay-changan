@@ -1,5 +1,7 @@
 package com.shilapi.xcertplay.adb
 
+import com.shilapi.xcertplay.compat.Base64Compat
+import com.shilapi.xcertplay.compat.noBackupFilesDirCompat
 import android.content.Context
 import java.io.File
 import java.math.BigInteger
@@ -14,7 +16,6 @@ import java.security.Signature
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
-import java.util.Base64
 
 /** DiPlay's own ADB key: adbd remembers it after the driver approves it once. */
 object AdbKeys {
@@ -32,7 +33,7 @@ object AdbKeys {
     /** Loads the key from app-private storage, or makes one on first use. */
     @Synchronized
     fun load(context: Context): KeyPair {
-        val dir = File(context.noBackupFilesDir, DIR)
+        val dir = File(context.noBackupFilesDirCompat(), DIR)
         val privateFile = File(dir, PRIVATE)
         val publicFile = File(dir, PUBLIC)
         runCatching {
@@ -75,7 +76,7 @@ object AdbKeys {
             put(littleEndian(rr, KEY_BITS / 8))
             putInt(rsa.publicExponent.toInt())
         }.array()
-        return (Base64.getEncoder().encodeToString(blob) + NAME + "\u0000").toByteArray(Charsets.UTF_8)
+        return (Base64Compat.encodeToString(blob) + NAME + "\u0000").toByteArray(Charsets.UTF_8)
     }
 
     private fun littleEndian(value: BigInteger, size: Int): ByteArray {

@@ -1,5 +1,7 @@
 package com.shilapi.xcertplay.orchestration
 
+import com.shilapi.xcertplay.compat.alternateSettingCompat
+import com.shilapi.xcertplay.compat.noBackupFilesDirCompat
 import com.shilapi.xcertplay.compat.getSystemServiceCompat
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
@@ -549,7 +551,7 @@ class CarPlayController(
         availabilityPollGeneration.incrementAndGet()
         phase = Phase.MFI
         onStatus(CarPlayStatus.DiscoveringMfi)
-        val offlineDirectory = java.io.File(appContext.noBackupFilesDir, LocalMfiAuthenticationClient.DIRECTORY)
+        val offlineDirectory = java.io.File(appContext.noBackupFilesDirCompat(), LocalMfiAuthenticationClient.DIRECTORY)
         if (offlineDirectory.exists()) {
             openLocalMfi(offlineDirectory)
             return
@@ -1414,27 +1416,38 @@ class CarPlayController(
                 permissionPollGeneration++
                 when (phase) {
                     Phase.REENUMERATION, Phase.IPHONE -> {
-                        val configuration = IphoneCarPlayConfiguration.find(result.device)
-                        connectionDiagnostic(
-                            "USB configuration ready=${configuration != null} " +
-                                "configurationId=${configuration?.id ?: "none"} " +
-                                "reenumerationAttempts=$reenumerationAttempts " +
-                                "action=${when {
-                                    configuration != null -> "reuse-descriptors"
-                                    reenumerationAttempts < MAXIMUM_REENUMERATION_ATTEMPTS -> "request-transition"
-                                    else -> "reject-missing-configuration"
-                                }}",
-                        )
-                        if (configuration != null) {
-                            openDataPaths(result.device)
-                        } else if (reenumerationAttempts < MAXIMUM_REENUMERATION_ATTEMPTS) {
-                            beginReenumeration(result.device)
-                        } else {
-                            fail(
-                                IphoneUsbException.Protocol(
-                                    "iPhone did not expose a complete CarPlay USB configuration",
-                                ),
+                        // KitKat has no UsbConfiguration API: skip the descriptor-based
+                        // configuration check and open the data paths on the default
+                        // configuration directly (both session hosts branch on SDK level).
+                        if (Build.VERSION.SDK_INT < 21) {
+                            connectionDiagnostic(
+                                "USB configuration check skipped on KitKat; " +
+                                    "descriptors come from the default configuration",
                             )
+                            openDataPaths(result.device)
+                        } else {
+                            val configuration = IphoneCarPlayConfiguration.find(result.device)
+                            connectionDiagnostic(
+                                "USB configuration ready=${configuration != null} " +
+                                    "configurationId=${configuration?.id ?: "none"} " +
+                                    "reenumerationAttempts=$reenumerationAttempts " +
+                                    "action=${when {
+                                        configuration != null -> "reuse-descriptors"
+                                        reenumerationAttempts < MAXIMUM_REENUMERATION_ATTEMPTS -> "request-transition"
+                                        else -> "reject-missing-configuration"
+                                    }}",
+                            )
+                            if (configuration != null) {
+                                openDataPaths(result.device)
+                            } else if (reenumerationAttempts < MAXIMUM_REENUMERATION_ATTEMPTS) {
+                                beginReenumeration(result.device)
+                            } else {
+                                fail(
+                                    IphoneUsbException.Protocol(
+                                        "iPhone did not expose a complete CarPlay USB configuration",
+                                    ),
+                                )
+                            }
                         }
                     }
                     else -> Unit
@@ -1536,15 +1549,22 @@ class CarPlayController(
     }
 
     private fun openNcm(device: UsbDevice): NcmUsbBridge {
-        val configuration = IphoneCarPlayConfiguration.find(device)
-            ?: throw IphoneUsbException.Protocol(
-                "iPhone exposes no CarPlay configuration for NCM",
-            )
-        val function = NcmFunctionDiscovery.find(configuration)
-            ?: throw IphoneUsbException.Protocol("iPhone configuration does not expose an NCM function")
+        // KitKat has no UsbConfiguration API: descriptors come from the default configuration.
+        val configurationId: Int?
+        val function = if (Build.VERSION.SDK_INT >= 21) {
+            val configuration = IphoneCarPlayConfiguration.find(device)
+                ?: throw IphoneUsbException.Protocol(
+                    "iPhone exposes no CarPlay configuration for NCM",
+                )
+            configurationId = configuration.id
+            NcmFunctionDiscovery.find(configuration)
+        } else {
+            configurationId = null
+            NcmFunctionDiscovery.findKitKat(device)
+        } ?: throw IphoneUsbException.Protocol("iPhone configuration does not expose an NCM function")
         debugLog(
-            "ncm config=${configuration.id} control=${function.control.id}/${function.control.alternateSetting}" +
-                " data=${function.data.id}/${function.data.alternateSetting}" +
+            "ncm config=${configurationId ?: "default"} control=${function.control.id}/${function.control.alternateSettingCompat()}" +
+                " data=${function.data.id}/${function.data.alternateSettingCompat()}" +
                 " status=${function.statusIn?.address?.let { "0x${it.toString(16)}" } ?: "none"}" +
                 " in=0x${function.bulkIn.address.toString(16)} out=0x${function.bulkOut.address.toString(16)}",
         )

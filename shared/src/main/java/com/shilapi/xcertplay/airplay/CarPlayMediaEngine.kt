@@ -435,17 +435,26 @@ class CarPlayMediaEngine(
     }
 }
 
+// Long.toUnsignedString/Integer.toUnsignedString are API 26; BigInteger math covers KitKat.
+private val TWO_64 = BigInteger.ONE.shiftLeft(64)
+
+internal fun unsignedLongString(value: Long): String =
+    if (value >= 0) value.toString() else BigInteger.valueOf(value).add(TWO_64).toString()
+
+internal fun unsignedIntString(value: Int): String =
+    if (value >= 0) value.toString() else BigInteger.valueOf(value.toLong()).add(BigInteger.ONE.shiftLeft(32)).toString()
+
 internal fun unsignedPlistDecimal(value: Any?): String? = when (value) {
-    is Long -> java.lang.Long.toUnsignedString(value)
-    is Int -> Integer.toUnsignedString(value)
+    is Long -> unsignedLongString(value)
+    is Int -> unsignedIntString(value)
     is Short -> (value.toInt() and 0xffff).toString()
     is Byte -> (value.toInt() and 0xff).toString()
     is BigInteger -> if (value.signum() >= 0) value.toString() else null
-    else -> (value as? Number)?.toLong()?.let(java.lang.Long::toUnsignedString)
+    else -> (value as? Number)?.toLong()?.let(::unsignedLongString)
 }
 
 internal fun unsignedPlistInteger(value: Any?): Any = when (value) {
-    is Long -> if (value < 0) BigInteger(java.lang.Long.toUnsignedString(value)) else value
-    is Int -> if (value < 0) BigInteger(Integer.toUnsignedString(value)) else value
+    is Long -> if (value < 0) BigInteger.valueOf(value).add(TWO_64) else value
+    is Int -> if (value < 0) BigInteger.valueOf(value.toLong()).add(BigInteger.ONE.shiftLeft(32)) else value
     else -> value ?: 0L
 }
