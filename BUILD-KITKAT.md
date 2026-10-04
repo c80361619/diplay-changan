@@ -108,3 +108,21 @@ gradle :mobile:assembleRelease   # 产物 mobile/build/outputs/apk/release/mobil
 ## 已知取舍
 - targetSdk=19：系统按最老兼容模式运行（无运行时权限弹窗、无通道化通知），这正是老车机需要的。
 - 测试：`common/src/test` 保留并随构建编译，但未在本分支重新校准，CI 不作为门槛。
+
+## 车机闪退排查
+
+APK 内置了崩溃落盘：任何未捕获异常都会在进程退出前写入（handler 在 MultiDex 之前安装，
+只用 framework API，secondary dex 加载失败也能记录）。
+
+- 日志位置：**`/sdcard/Download/diplay-crash.log`**（首选，文件管理器直接拷出）；
+  兜底 `/sdcard/Android/data/com.shihab.diplay/files/diplay-crash.log` 和应用内部存储同名文件。
+- 操作：安装 release APK → 打开复现闪退 → 用车机文件管理器或 U 盘拷出 `diplay-crash.log`。
+- 有 USB 调试时更快（设置→关于车机→连点版本号开启开发者模式）：
+  `adb logcat -b crash -d > crash.txt`，或复现时执行 `adb logcat *:E AndroidRuntime:E`。
+
+常见嫌疑（按概率）：
+1. 车机实际系统低于 4.4（如 4.2）：部分魔改 ROM 的包管理不校验 minSdk，装上即崩——日志首行的
+   `sdk=` 会直接给出真实 API 级别；
+2. MultiDex 在老 ROM 的 linearAlloc 限制下加载 secondary dex 失败（`OutOfMemoryError` /
+   `ClassNotFound` in `MultiDex`）——需要 root 调大 `dalvik.vm.linearAlloc` 或改用 R8 缩减；
+3. ROM 裁剪导致 framework 类缺失。
