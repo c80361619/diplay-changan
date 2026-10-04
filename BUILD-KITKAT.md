@@ -26,6 +26,26 @@ ANDROID_KEYSTORE_PATH=... ANDROID_KEYSTORE_PASSWORD=... \
 ANDROID_KEY_ALIAS=... ANDROID_KEY_PASSWORD=... ./gradlew :mobile:assembleRelease
 ```
 
+**本机已有的签名配置**（构建 release 直接可用，keystore 在仓库外的 android-build-tools 目录）：
+
+| 项 | 值 |
+|---|---|
+| keystore | `F:\ZcodeData\.zcode\workspace\default\android-build-tools\diplay-release.jks` |
+| 别名 | `diplay` |
+| 密码 | `DiPlay64e450ed2026`（同 `android-build-tools\diplay-keystore-password.txt`） |
+| 密钥 | RSA 2048，自签，有效期至 2056 年 |
+
+```bash
+# 用已有 keystore 构建 release（Git Bash 示例）
+export ANDROID_KEYSTORE_PATH=/f/ZcodeData/.zcode/workspace/default/android-build-tools/diplay-release.jks
+export ANDROID_KEYSTORE_PASSWORD=DiPlay64e450ed2026
+export ANDROID_KEY_ALIAS=diplay
+export ANDROID_KEY_PASSWORD=$ANDROID_KEYSTORE_PASSWORD
+gradle :mobile:assembleRelease   # 产物 mobile/build/outputs/apk/release/mobile-release.apk
+```
+
+⚠️ 以后升级版本必须继续用这同一个 keystore 签名：签名不一致会导致车机上无法覆盖安装，只能卸载重装（会丢设置）。请把 `diplay-release.jks` 备份保存。
+
 `DIPLAY_AUTH_ASSETS_DIR`（离线 MFi 身份资产）的用法与原版一致，`assembleStandaloneDebug` 任务保留。
 
 ## 相对上游（v0.2.10）的改动清单
