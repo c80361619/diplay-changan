@@ -95,13 +95,17 @@ class DiPlayActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         languagePreferenceAtCreate = AppLocale.preference(this)
-        com.shilapi.xcertplay.hud.BydNavigationOutputs.onAppOpened(applicationContext)
-        WindowCompat.setDecorFitsSystemWindows(window, true)
-        if (Build.VERSION.SDK_INT >= 21) { window.statusBarColor = BG; window.navigationBarColor = BG }
-        WindowInsetsControllerCompat(window, window.decorView).apply {
-            isAppearanceLightStatusBars = false
-            hide(WindowInsetsCompat.Type.statusBars())
-        }
+        // Best-effort boot steps: none of these may take the whole app down on an exotic ROM.
+        runCatching { com.shilapi.xcertplay.hud.BydNavigationOutputs.onAppOpened(applicationContext) }
+            .onFailure { Log.w("DiPlay", "BYD navigation init skipped", it) }
+        runCatching {
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+            if (Build.VERSION.SDK_INT >= 21) { window.statusBarColor = BG; window.navigationBarColor = BG }
+            WindowInsetsControllerCompat(window, window.decorView).apply {
+                isAppearanceLightStatusBars = false
+                hide(WindowInsetsCompat.Type.statusBars())
+            }
+        }.onFailure { Log.w("DiPlay", "window chrome setup skipped", it) }
         setupError = runCatching { DiPlayBootstrap.ensure(this) }.exceptionOrNull()?.let {
             android.util.Log.e("DiPlaySetup", "CarPlay authentication could not be loaded", it)
             getString(R.string.setup_error_auth)

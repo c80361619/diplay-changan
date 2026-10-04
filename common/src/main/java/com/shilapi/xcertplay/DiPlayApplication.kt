@@ -45,6 +45,7 @@ class DiPlayApplication : Application() {
         report.append(" device=").append(Build.DEVICE)
         report.append(" model=").append(Build.MODEL)
         report.append(" brand=").append(Build.BRAND)
+        report.append(" fingerprint=").append(Build.FINGERPRINT)
         report.append(" thread=").append(thread.name).append(" ===\n")
         report.append(Log.getStackTraceString(error)).append("\n\n")
         val bytes = report.toString().toByteArray(Charsets.UTF_8)
