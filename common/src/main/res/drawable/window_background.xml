@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Referenced as android:windowBackground so kits like the i.MX6 head-unit ROM that call
+     Resources.getResourceName on the theme's background ID never see 0 (a color literal). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#0C111B" />
+</shape>

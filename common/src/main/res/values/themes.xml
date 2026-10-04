@@ -1,7 +1,10 @@
-<!-- KitKat baseline: Holo has no Material attrs; dark window background keeps the CarPlay look. -->
+<!-- KitKat baseline: Holo has no Material attrs; dark window background keeps the CarPlay look.
+     The background must be a drawable REFERENCE, not a color literal: at least the Freescale
+     i.MX6 head-unit ROM resolves the resource name of this attribute in PhoneWindow.generateLayout
+     and crashes with NotFoundException(0x0) on a color-only value. -->
 <resources>
     <style name="Theme.Xcertplay" parent="android:Theme.Holo.NoActionBar">
-        <item name="android:windowBackground">#0C111B</item>
+        <item name="android:windowBackground">@drawable/window_background</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
 </resources>
