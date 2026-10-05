@@ -44,6 +44,17 @@ export ANDROID_KEY_PASSWORD=$ANDROID_KEYSTORE_PASSWORD
 gradle :mobile:assembleRelease   # 产物 mobile/build/outputs/apk/release/mobile-release.apk
 ```
 
+⚠️ **没有认证资产的构建装上车后会提示"无法加载 CarPlay 认证，请覆盖完整的 DiPlay 构建"**。
+官方 release 的 APK 在 `assets/offline-mfi/` 里打包了实验性 accessory identity（作者注明
+该密钥可提取）；源码构建必须设置 `DIPLAY_AUTH_ASSETS_DIR` 指向含 `offline-mfi/
+identity.pk8` 与 `certificate.p7b` 的目录，preBuild 会校验并打进 APK：
+
+```bash
+# 一次性提取（本机已完成，目录在仓库外的 android-build-tools/ 下）：
+# unzip -j DiPlay-0.2.10.apk "assets/offline-mfi/*" -d diplay-auth-assets/offline-mfi/
+export DIPLAY_AUTH_ASSETS_DIR=/f/ZcodeData/.zcode/workspace/default/android-build-tools/diplay-auth-assets
+```
+
 ⚠️ 以后升级版本必须继续用这同一个 keystore 签名：签名不一致会导致车机上无法覆盖安装，只能卸载重装（会丢设置）。请把 `diplay-release.jks` 备份保存。
 
 `DIPLAY_AUTH_ASSETS_DIR`（离线 MFi 身份资产）的用法与原版一致，`assembleStandaloneDebug` 任务保留。
