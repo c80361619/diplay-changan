@@ -270,8 +270,9 @@ class DiPlayActivity : ComponentActivity() {
         }
         section(content, getString(R.string.diagnostics), R.drawable.ic_dp_diagnostics) { card ->
             exportButton = button(if (exportInProgress) getString(R.string.saving_report) else getString(R.string.save_diagnostic_report), false) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) exportDiagnostics()
-                else chooseReportDestination()
+                // Unified entry: on KitKat the report goes straight to Downloads/DiPlay
+                // because the ROM's SAF picker (chooseReportDestination) is usually absent.
+                exportDiagnostics()
             }.apply { isEnabled = !exportInProgress }
             card.addView(exportButton, matchButton(10, 60))
             card.addView(button(getString(R.string.choose_save_location), false) { chooseReportDestination() }, matchButton(10, 60))
@@ -1068,7 +1069,20 @@ class DiPlayActivity : ComponentActivity() {
                 if (uri != null) { DiagnosticExportStore.write(appContext.contentResolver, uri, report); uri }
                 else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     DiagnosticExportStore.saveToDownloads(appContext.contentResolver, fileName, report)
-                } else error("A save location is required")
+                } else {
+                    // KitKat head-unit ROMs usually ship no DocumentsUI, so the SAF picker has
+                    // nothing to launch. WRITE_EXTERNAL_STORAGE is granted at install: write
+                    // straight to /sdcard/Download/DiPlay (the crash-log path already works).
+                    val dir = File(
+                        android.os.Environment.getExternalStoragePublicDirectory(
+                            android.os.Environment.DIRECTORY_DOWNLOADS),
+                        "DiPlay",
+                    )
+                    if (!dir.isDirectory && !dir.mkdirs()) error("Downloads/DiPlay could not be created")
+                    val file = File(dir, fileName)
+                    file.writeText(report)
+                    android.net.Uri.fromFile(file)
+                }
             }
             runOnUiThread {
                 exportInProgress = false
