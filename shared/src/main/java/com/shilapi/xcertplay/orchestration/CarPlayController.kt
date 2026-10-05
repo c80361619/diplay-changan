@@ -1765,12 +1765,17 @@ class CarPlayController(
             type.equals("disable-bluetooth", ignoreCase = true)
 
     private fun startWirelessHotspot(generation: Int): WirelessHotspotInfo {
-        val hotspotMode = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
-            config.wirelessHotspotMode == WirelessHotspotMode.WIFI_P2P
-        ) {
-            WirelessHotspotMode.LOCAL_ONLY_HOTSPOT
-        } else {
-            config.wirelessHotspotMode
+        // Upstream remaps Wi-Fi Direct to the local-only hotspot below Android 10 (a DiLink
+        // tuning). KitKat has no local-only hotspot at all: keep Wi-Fi Direct, whose APIs
+        // exist since API 14.
+        val hotspotMode = when {
+            Build.VERSION.SDK_INT < 21 &&
+                config.wirelessHotspotMode == WirelessHotspotMode.WIFI_P2P ->
+                WirelessHotspotMode.WIFI_P2P
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                config.wirelessHotspotMode == WirelessHotspotMode.WIFI_P2P ->
+                WirelessHotspotMode.LOCAL_ONLY_HOTSPOT
+            else -> config.wirelessHotspotMode
         }
         if (hotspotMode == WirelessHotspotMode.MANUAL &&
             com.shilapi.xcertplay.network.CarHotspotStatus.isEnabled(appContext) == false
