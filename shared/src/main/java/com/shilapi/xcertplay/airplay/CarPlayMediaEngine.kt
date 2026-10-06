@@ -109,6 +109,7 @@ class CarPlayMediaEngine(
                     session.close()
                 }
             },
+            bindAddress = session.bindAddress(),
         )
         streams.put(streamKey, screen)?.close()
         sink.onScreenStreamActive(type, true)
@@ -169,6 +170,7 @@ class CarPlayMediaEngine(
                     capture?.record(wire, rtp, sample, error)
                 }
             },
+            bindAddress = session.bindAddress(),
         )
         streams[streamKey] = audio
         audioMeta[streamKey] = meta

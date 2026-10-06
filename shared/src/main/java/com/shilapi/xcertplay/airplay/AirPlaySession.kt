@@ -9,6 +9,7 @@ import java.io.Closeable
 import java.math.BigInteger
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -601,7 +602,7 @@ class AirPlaySession(
     }
 
     private fun openTiming(peerPort: Int): Int {
-        val port = ntp.listen()
+        val port = ntp.listen(bindAddress())
         if (peerPort > 0) peerAddress?.let { ntp.start(it, peerPort) }
         return port
     }
@@ -609,7 +610,7 @@ class AirPlaySession(
     private fun openKeepAlive(): Int {
         val socket = DatagramSocket(null)
         socket.reuseAddress = true
-        socket.bind(InetSocketAddress(InetAddress.getByName("::"), 0))
+        socket.bind(InetSocketAddress(bindAddress(), 0))
         keepAliveSocket = socket
         keepAliveThread = Thread({ runKeepAlive(socket) }, "airplay-keepalive").apply {
             isDaemon = true
@@ -630,11 +631,19 @@ class AirPlaySession(
     }
 
     private fun openEvent(): Int {
-        val server = ServerSocket(0, 50, InetAddress.getByName("::"))
+        val server = ServerSocket(0, 50, bindAddress())
         eventServer = server
         spawnEvent("airplay-event-accept") { acceptEvent(server) }
         return server.localPort
     }
+
+    /**
+     * 服务端口的绑定地址：无线会话的 localAddress 是 IPv4 热点地址，改绑 IPv4 通配 0.0.0.0——
+     * 部分老 ROM 内核上 `::` 绑定不接收 IPv4 连接，iPhone 连不上 event/timing 端口会在 SETUP
+     * 应答后立即断开；有线会话（IPv6 link-local）保持原有 `::` 行为。
+     */
+    internal fun bindAddress(): InetAddress =
+        if (localAddress is Inet4Address) InetAddress.getByName("0.0.0.0") else InetAddress.getByName("::")
 
     private fun teardown() {
         ntp.close()
