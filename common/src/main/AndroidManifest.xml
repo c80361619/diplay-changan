@@ -95,6 +95,17 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!-- KitKat media-button receiver: below API 21 there is no MediaSession, so the global
+             media-button receiver is how steering-wheel / headset keys reach CarPlay. Only
+             registered while CarPlay audio is active (see CarPlayMediaKeys). -->
+        <receiver
+            android:name="com.shilapi.xcertplay.DiPlayMediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

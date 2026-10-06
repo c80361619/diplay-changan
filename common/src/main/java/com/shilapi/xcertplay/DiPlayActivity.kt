@@ -893,7 +893,9 @@ class DiPlayActivity : ComponentActivity() {
             toast(getString(R.string.save_the_name_and_password_from_the_car_s_hotspot_settings))
             return
         }
-        if (wireless && carHotspotOff()) { carHotspotOffDialog(); return }
+        // On KitKat DiPlay enables the saved hotspot itself (CHANGE_WIFI_STATE is enough there);
+        // the manual dialog stays for O+ firmware where tethering is ADB-only.
+        if (wireless && carHotspotOff() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { carHotspotOffDialog(); return }
         if (wireless && DiPlayPreferences.phoneAddress(this) == null) {
             pendingWireless = true; choosePhone(); return
         }

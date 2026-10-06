@@ -1780,7 +1780,13 @@ class CarPlayController(
         if (hotspotMode == WirelessHotspotMode.MANUAL &&
             com.shilapi.xcertplay.network.CarHotspotStatus.isEnabled(appContext) == false
         ) {
-            throw IOException("The car hotspot is off. Turn it on in the car settings and connect again.")
+            // KitKat lets a normal app enable the saved hotspot config; try that before failing.
+            // The hotspot takes a few seconds to come up; the manager's poll loop waits for it.
+            val requested = com.shilapi.xcertplay.network.CarHotspotStatus.enableIfPossible(appContext)
+            if (requested != true) {
+                throw IOException("The car hotspot is off. Turn it on in the car settings and connect again.")
+            }
+            debugLog("car hotspot was off; enable requested")
         }
         val manager: WirelessHotspotManager = when (hotspotMode) {
             WirelessHotspotMode.WIFI_P2P -> WifiP2pGroupManager(appContext, ::debugLog)

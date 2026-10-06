@@ -5,6 +5,7 @@
 package com.shilapi.xcertplay
 
 import android.annotation.SuppressLint
+import android.content.ComponentName
 import com.shilapi.xcertplay.compat.getSystemServiceCompat
 import com.shilapi.xcertplay.compat.AudioFocusHandle
 import android.content.Context
@@ -54,6 +55,7 @@ internal object CarPlayMediaKeys {
     private var artworkOwner: Any? = null
     private var controller: CarPlayController? = null
     private var session: MediaSession? = null
+    private var mediaButtonComponent: ComponentName? = null
     private var focus: AudioFocusHandle? = null
     private var focusHeld = false
     private var appContext: Context? = null
@@ -171,7 +173,14 @@ internal object CarPlayMediaKeys {
             AudioManager.AUDIOFOCUS_GAIN, mainHandler)
         focus = handle
         focusHeld = granted
-        if (Build.VERSION.SDK_INT < 21) return // No MediaSession on KitKat; wheel keys stay local.
+        if (Build.VERSION.SDK_INT < 21) {
+            // KitKat has no MediaSession; the global media-button receiver is the pre-Lollipop
+            // mechanism. The head unit's AVRCP play/pause/next/previous lands here and goes to
+            // the iPhone as CarPlay HID presses.
+            registerMediaButtonReceiverLocked(context)
+            Log.i(TAG, "media keys active (media button receiver) focusGranted=$granted")
+            return
+        }
         session = MediaSession(context, "DiPlay CarPlay").apply {
             setCallback(callback, mainHandler)
             setMetadata(androidMetadata(nowPlaying, artwork))
@@ -183,6 +192,7 @@ internal object CarPlayMediaKeys {
     private fun releaseLocked() {
         artworkOwner = null
         artworkQueue.clear()
+        unregisterMediaButtonReceiverLocked()
         session?.let {
             it.isActive = false
             it.release()
@@ -227,6 +237,39 @@ internal object CarPlayMediaKeys {
         }
         val sent = synchronized(this) { controller }?.sendMediaButton(index) ?: false
         Log.i(TAG, "media key $source -> CarPlay $index sent=$sent")
+    }
+
+    /** Entry point for [DiPlayMediaButtonReceiver]; the caller holds no lock. */
+    @Synchronized
+    internal fun onHardwareMediaButton(index: Int, source: String) {
+        if (controller == null) return
+        send(index, source)
+    }
+
+    // Called with this object's monitor (from start, which callers reach via onMediaAudioChanged).
+    private fun registerMediaButtonReceiverLocked(context: Context) {
+        if (mediaButtonComponent != null) return
+        val audio = context.getSystemServiceCompat(AudioManager::class.java) ?: return
+        val component = ComponentName(context, DiPlayMediaButtonReceiver::class.java)
+        runCatching {
+            @Suppress("DEPRECATION")
+            audio.registerMediaButtonEventReceiver(component)
+        }.onSuccess {
+            mediaButtonComponent = component
+        }.onFailure { error ->
+            Log.w(TAG, "media button receiver registration failed", error)
+        }
+    }
+
+    private fun unregisterMediaButtonReceiverLocked() {
+        val component = mediaButtonComponent ?: return
+        mediaButtonComponent = null
+        val context = appContext ?: return
+        runCatching {
+            @Suppress("DEPRECATION")
+            context.getSystemServiceCompat(AudioManager::class.java)
+                ?.unregisterMediaButtonEventReceiver(component)
+        }
     }
 
     // Lazy: MediaSession.Callback is API 21; class-load on KitKat must not instantiate it.
