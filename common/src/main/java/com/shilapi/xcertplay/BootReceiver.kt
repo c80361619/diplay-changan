@@ -13,6 +13,19 @@ class BootReceiver : BroadcastReceiver() {
         StartupDiagnosticSnapshot.received(context, launchEnabled)
         if (!launchEnabled) return
 
+        // Wireless CarPlay needs the unit's own hotspot up before the iPhone can join. KitKat
+        // lets a normal app enable the saved hotspot config, so do it right at boot instead of
+        // waiting for the user to open the car's tethering settings.
+        if (AirPlayPersistence.loadWirelessEnabled(context) &&
+            AirPlayPersistence.loadWirelessHotspotMode(context) ==
+            com.shilapi.xcertplay.orchestration.WirelessHotspotMode.MANUAL &&
+            com.shilapi.xcertplay.network.CarHotspotStatus.isEnabled(context) == false
+        ) {
+            val requested =
+                com.shilapi.xcertplay.network.CarHotspotStatus.enableIfPossible(context)
+            Log.i(TAG, "boot hotspot enable requested=$requested")
+        }
+
         val launch = Intent(context, DiPlayActivity::class.java).apply {
             addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or

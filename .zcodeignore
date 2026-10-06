@@ -1,0 +1,77 @@
+# Android Studio and local IDE state
+.idea/
+*.iml
+.vscode/
+
+# Gradle and local tooling
+.gradle/
+.kotlin/
+build/
+local.properties
+
+# Native build output
+.cxx/
+.externalNativeBuild/
+captures/
+
+# Local agent working notes
+/agent_docs/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.log
+/.idea
+
+# Local beta credentials and release signing (never commit)
+.private/
+*.jks
+*.keystore
+release-signing.properties
+
+# Never commit credential containers or installable distribution artifacts.
+*.pk8
+*.p7b
+*.p12
+*.pfx
+*.pem
+*.key
+*.apk
+*.aab
+
+# KitKat build environment (local only)
+local.properties
+build/
+.gradle/
+
+# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====
+.git/
+.hg/
+.svn/
+node_modules/
+bower_components/
+jspm_packages/
+__pycache__/
+site-packages/
+venv/
+coverage/
+htmlcov/
+lcov-report/
+cmakefiles/
+cmake-build-*/
+bazel-*/
+pods/
+deriveddata/
+storybook-static/
+playwright-report/
+test-results/
+allure-results/
+allure-report/
+cdk.out/
+*.egg-info/
+*.dist-info/
+eggs/
+pip-wheel-metadata/
+wheels/
+# ----- ↑ 以上为 ZCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----
+# 自定义规则写在下方（本行提示可删除）

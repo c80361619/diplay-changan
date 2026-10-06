@@ -356,6 +356,7 @@ class CarPlayHostActivity : ComponentActivity() {
     private var gestureStartX = 0f
     private var gestureStartY = 0f
     private val shuttingDown = AtomicBoolean(false)
+    private val loggedUnknownKeys = mutableSetOf<Int>()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val teardownExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private val airPlayCommandExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -768,14 +769,33 @@ class CarPlayHostActivity : ComponentActivity() {
         }
     }
 
-    // The steering-wheel voice key reaches the focused window; while CarPlay is on screen it opens Siri.
+    // Steering-wheel keys reach the focused window on several ROMs (the CS75 wheel sends no
+    // AVRCP MEDIA_BUTTON broadcasts, so the receiver never sees them): the voice key opens Siri,
+    // media keys go to the iPhone as CarPlay HID presses, and unknown codes are logged once each
+    // so a diagnostic report shows what the wheel actually sends.
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (!CarPlayMediaButton.opensSiri(event.keyCode)) return super.dispatchKeyEvent(event)
-        if (event.action == KeyEvent.ACTION_UP) {
-            val sent = controller?.requestSiri() == true
-            appendLog("Siri: voice key ${event.keyCode} sent=$sent")
+        if (CarPlayMediaButton.opensSiri(event.keyCode)) {
+            if (event.action == KeyEvent.ACTION_UP) {
+                val sent = controller?.requestSiri() == true
+                appendLog("Siri: voice key ${event.keyCode} sent=$sent")
+            }
+            return true
         }
-        return true
+        CarPlayMediaButton.forKeyCode(event.keyCode)?.let { index ->
+            if (event.action == KeyEvent.ACTION_UP && event.repeatCount == 0) {
+                appendLog("Wheel key ${KeyEvent.keyCodeToString(event.keyCode)} -> HID $index")
+                CarPlayMediaKeys.onHardwareMediaButton(index, KeyEvent.keyCodeToString(event.keyCode))
+            }
+            return true
+        }
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            synchronized(loggedUnknownKeys) {
+                if (loggedUnknownKeys.add(event.keyCode)) {
+                    appendLog("Wheel key ${KeyEvent.keyCodeToString(event.keyCode)} not mapped")
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
