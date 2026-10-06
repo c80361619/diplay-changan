@@ -251,9 +251,7 @@ class CarPlayBonjour(
                     } else {
                         null
                     }
-                    val dns = address
-                        ?.let { JmDNS.create(it, "carplay-${config.deviceId.replace(":", "")}") }
-                        ?: JmDNS.create("carplay-${config.deviceId.replace(":", "")}")
+                    val dns = createResponder(address)
                     interfaceMdns = dns
                     dns.addServiceListener("$CARPLAY_CONTROL_SERVICE_TYPE.local.", interfaceListener)
                     dns.registerService(ServiceInfo.create(
@@ -341,6 +339,18 @@ class CarPlayBonjour(
             NsdManager.PROTOCOL_DNS_SD,
             registrationListener,
         )
+    }
+
+    /**
+     * Creates the JmDNS responder, annotating bind failures with the current 5353 holder so the
+     * diagnostic report names the conflicting process (e.g. a factory AirPlay daemon).
+     */
+    private fun createResponder(address: InetAddress?): JmDNS = try {
+        val name = "carplay-${config.deviceId.replace(":", "")}"
+        address?.let { JmDNS.create(it, name) } ?: JmDNS.create(name)
+    } catch (error: IOException) {
+        val holders = UdpPortOwnerProbe.describe(MDNS_PORT) ?: "none"
+        throw IOException("mDNS responder failed to bind UDP $MDNS_PORT; holders=[$holders]", error)
     }
 
     private fun advertisedHostAddress(): InetAddress? {
@@ -585,6 +595,7 @@ class CarPlayBonjour(
         const val WORKER_NAME = "carplay-bonjour"
         const val AIRPLAY_SERVICE_TYPE = "_airplay._tcp"
         const val CARPLAY_CONTROL_SERVICE_TYPE = "_carplay-ctrl._tcp"
+        const val MDNS_PORT = 5353
         const val WORKER_POLL_MILLIS = 500L
         const val RESOLVE_ATTEMPTS = 3
         const val RESOLVE_TIMEOUT_MILLIS = 10_000L

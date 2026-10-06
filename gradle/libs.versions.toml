@@ -7,7 +7,7 @@ lifecycleRuntimeKtx = "2.6.1"
 activity = "1.8.2"
 junit = "4.13.2"
 bouncycastle = "1.79"
-jmdns = "3.6.3"
+slf4j = "2.0.7"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -16,7 +16,8 @@ androidx-activity = { group = "androidx.activity", name = "activity", version.re
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 # jdk15to18 variant: plain Java 8 bytecode, no multi-release jar, safe for old D8/Dalvik.
 bouncycastle = { group = "org.bouncycastle", name = "bcprov-jdk15to18", version.ref = "bouncycastle" }
-jmdns = { group = "org.jmdns", name = "jmdns", version.ref = "jmdns" }
+# jmDNS 以源码形式内嵌在 shared/src/main/java/javax/jmdns（KitKat 绑定时序修复），此处仅保留其日志门面。
+slf4j-api = { group = "org.slf4j", name = "slf4j-api", version.ref = "slf4j" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

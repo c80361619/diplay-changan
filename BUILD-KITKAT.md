@@ -63,6 +63,12 @@ export DIPLAY_AUTH_ASSETS_DIR=/f/ZcodeData/.zcode/workspace/default/android-buil
 
 ### 工具链与构建
 - AGP 9.3.0 → 8.2.2，Gradle 9.5 → 8.2.1，Kotlin 2.2.10 → 2.0.21，compileSdk 37 → 34。
+- jmDNS 3.6.3 以源码内嵌到 `shared/src/main/java/javax/jmdns`（移除 jar 依赖），原因有二：
+  ① `JmDNSImpl.openMulticastSocket` 改为绑定 UDP 5353 前先启用 `SO_REUSEADDR`——KitKat 的
+  `MulticastSocket(SocketAddress)` 构造器先绑定后设标志，无法与车机系统 mdnsd 共存（EADDRINUSE）；
+  ② 全部源码改写为 Java 7 等价写法：Dalvik 4.4 缺 `Map.getOrDefault`/`Collection.removeIf`/
+  Stream/`Map.forEach`（API 24）与 `java.util.function.*`，D8 脱糖的 lambda 合成类运行时直接
+  `NoSuchMethodError`/`NoClassDefFoundError`。新增 jmDNS 源码时必须保持 Java 7 语法与 API。
 - 所有模块 `minSdk = 19`、`targetSdk = 19`；`shared` 的 JNI 目标改为 `APP_PLATFORM=android-19`，
   NDK 固定 25.2.9519653（r25c，`-U_FORTIFY_SOURCE` 绕开 r25 fortify 与 android-19 头文件的已知冲突）。
 - BouncyCastle 从 `bcprov-jdk18on` 换为 `bcprov-jdk15to18`（无 multi-release jar，老 D8/Dalvik 更稳）。
