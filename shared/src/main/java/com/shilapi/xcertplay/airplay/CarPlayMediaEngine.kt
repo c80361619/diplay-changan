@@ -138,6 +138,7 @@ class CarPlayMediaEngine(
             TAG,
             "airplay audio format type=$type audioType=$audioType codec=${format.codec} " +
                 "rate=${format.sampleRate} channels=${format.channels} " +
+                "formatBits=0x${java.lang.Long.toHexString((stream["audioFormat"] as? Number)?.toLong() ?: 0L)} " +
                 "micPort=${(stream["dataPort"] as? Number)?.toInt() ?: 0}",
         )
         val connectionId = stream["streamConnectionID"]
@@ -400,6 +401,7 @@ class CarPlayMediaEngine(
             key = key,
             codec = format.codec,
             bitrate = if (format.codec == AudioCodecKind.OPUS) opusBitrate else null,
+            opusClockRate = MicrophoneConfig.opusClockRate(formatBits),
         )
     }
 
