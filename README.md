@@ -2,6 +2,8 @@
 
 **专为长安 CS75 2018款原厂车机打造的免盒子原生 Apple CarPlay 投屏应用。**
 
+[📦 立即下载最新 APK (v1.0.0-cs75)](https://github.com/c80361619/diplay-changan/releases/download/v1.0.0-cs75/DiPlay-Changan-CS75-v1.0.0.apk) · [🚀 Releases 发行版列表](https://github.com/c80361619/diplay-changan/releases)
+
 本项目基于开源项目 [DiPlay](https://github.com/shihabal3amri/DiPlay) 进行深度二次开发与底层架构降级改造，针对长安 CS75 2018款搭载的**飞思卡尔（Freescale / NXP）i.MX6 芯片及 Android 4.4.2 KitKat 系统**进行了专项适配与深度性能调优，实现无需外接 CarPlay 盒子、无需手机越狱、原车机直接安装即可使用。
 
 ---
