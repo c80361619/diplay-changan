@@ -454,11 +454,11 @@ private class VideoDecoder(
                         is VideoJob.Frame -> {
                             if (System.nanoTime() - job.receivedNs > MAX_FRAME_AGE_NS) {
                                 queue.discardFrames()
-                                recover("video backlog exceeded 250 ms")
+                                recoverBacklog("video backlog exceeded 500 ms")
                             } else feed(job.nalus)
                         }
                         is VideoJob.SurfaceChanged -> changeSurface(job.surface)
-                        is VideoJob.Resync -> recover("video queue overflow")
+                        is VideoJob.Resync -> recoverBacklog("video queue overflow")
                         null -> Unit
                     }
                     decoder?.let(::drainOutput)
@@ -677,6 +677,14 @@ private class VideoDecoder(
         requestKeyFrameIfDue()
     }
 
+    private fun recoverBacklog(reason: String) {
+        Log.w(TAG, "Video backlog recovery: $reason; requesting keyframe without destroying decoder")
+        stats.onRecovery()
+        report("backlog: $reason; requesting keyframe")
+        referenceChain.reset()
+        requestKeyFrameIfDue()
+    }
+
     private fun requestKeyFrameIfDue() {
         val now = System.nanoTime()
         if (lastKeyFrameRequestNs != 0L && now - lastKeyFrameRequestNs < 1_000_000_000L) return
@@ -749,7 +757,7 @@ private class VideoDecoder(
         const val TAG = "xcertplay-usb"
         const val MAX_INPUT_SIZE = 8 * 1024 * 1024
         const val INPUT_TIMEOUT_US = 10_000L
-        const val MAX_FRAME_AGE_NS = 250_000_000L
+        const val MAX_FRAME_AGE_NS = 500_000_000L
         val START_CODE = byteArrayOf(0x00, 0x00, 0x00, 0x01)
     }
 }

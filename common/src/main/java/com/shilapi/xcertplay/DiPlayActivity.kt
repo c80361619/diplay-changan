@@ -4,6 +4,7 @@ package com.shilapi.xcertplay
 
 import com.shilapi.xcertplay.compat.checkSelfPermissionCompat
 import com.shilapi.xcertplay.compat.getSystemServiceCompat
+import com.shilapi.xcertplay.network.CarHotspotStatus
 import android.Manifest
 import android.app.AlertDialog
 import android.bluetooth.BluetoothManager
@@ -155,12 +156,28 @@ class DiPlayActivity : ComponentActivity() {
         handler.removeCallbacks(tick); handler.post(tick)
         // Back from the car settings: refresh the car hotspot reminder on the home page.
         if (!initialLaunch && (page == "home" || page == "settings" || page == "connection")) render()
+        checkAndAutoEnableHotspot()
         if (initialLaunch) {
             initialLaunch = false
             if (setupError == null && !CarPlayBackgroundSession.hasSession() &&
                 DiPlayPreferences.autoConnect(this) && intent.getStringExtra("page") == null) {
                 handler.post { connect(AirPlayPersistence.loadWirelessEnabled(this)) }
             }
+        }
+    }
+
+    private fun checkAndAutoEnableHotspot() {
+        if (AirPlayPersistence.loadWirelessEnabled(this) &&
+            AirPlayPersistence.loadWirelessHotspotMode(this) == WirelessHotspotMode.MANUAL &&
+            carHotspotOff()
+        ) {
+            Thread({
+                val enabled = CarHotspotStatus.enableIfPossible(applicationContext)
+                Log.i("DiPlay", "auto-enable hotspot result: $enabled")
+                if (enabled == true) {
+                    runOnUiThread { render() }
+                }
+            }, "diplay-auto-hotspot").start()
         }
     }
     override fun onPause() { handler.removeCallbacks(tick); super.onPause() }
@@ -213,7 +230,23 @@ class DiPlayActivity : ComponentActivity() {
         card.addView(label(connectionHint, 15, MUTED).apply { setPadding(0, dp(14), 0, 0) })
         if (carHotspotOff()) {
             card.addView(label(getString(R.string.msg_car_hotspot_off, AirPlayPersistence.loadManualHotspotSsid(this)), 15, WARNING).apply { setPadding(0, dp(14), 0, 0) })
-            card.addView(button(getString(R.string.open_car_hotspot_settings), false) { openCarWifiSettings() }, matchButton(10, 56))
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                card.addView(button("开启车载热点", false) {
+                    Thread({
+                        val enabled = CarHotspotStatus.enableIfPossible(applicationContext)
+                        runOnUiThread {
+                            if (enabled == true) {
+                                render()
+                                toast("车载热点开启请求已发送")
+                            } else {
+                                toast("热点开启失败，请在设置中开启")
+                            }
+                        }
+                    }, "diplay-manual-hotspot-btn").start()
+                }, matchButton(10, 56))
+            } else {
+                card.addView(button(getString(R.string.open_car_hotspot_settings), false) { openCarWifiSettings() }, matchButton(10, 56))
+            }
         }
         card.addView(button(getString(R.string.choose_iphone), false) { choosePhone() }, matchButton(16, 56))
         disconnectButton = button(getString(R.string.disconnect), false) {
@@ -893,9 +926,14 @@ class DiPlayActivity : ComponentActivity() {
             toast(getString(R.string.save_the_name_and_password_from_the_car_s_hotspot_settings))
             return
         }
-        // On KitKat DiPlay enables the saved hotspot itself (CHANGE_WIFI_STATE is enough there);
-        // the manual dialog stays for O+ firmware where tethering is ADB-only.
-        if (wireless && carHotspotOff() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { carHotspotOffDialog(); return }
+        if (wireless && carHotspotOff()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                carHotspotOffDialog()
+                return
+            } else {
+                CarHotspotStatus.enableIfPossible(applicationContext)
+            }
+        }
         if (wireless && DiPlayPreferences.phoneAddress(this) == null) {
             pendingWireless = true; choosePhone(); return
         }
@@ -914,7 +952,7 @@ class DiPlayActivity : ComponentActivity() {
         else open()
     }
     private fun openProjection() {
-        startActivity(Intent(this, CarPlayHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+        startActivity(Intent(this, CarPlayHostActivity::class.java))
     }
     private fun choosePhone() {
         if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {

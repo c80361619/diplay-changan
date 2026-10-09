@@ -13,12 +13,24 @@ import com.shilapi.xcertplay.airplay.CarPlayMediaButton
  */
 class DiPlayMediaButtonReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_MEDIA_BUTTON) return
-        @Suppress("DEPRECATION")
-        val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT) ?: return
-        val index = CarPlayMediaButton.forKeyCode(event.keyCode) ?: return
-        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-            CarPlayMediaKeys.onHardwareMediaButton(index, KeyEvent.keyCodeToString(event.keyCode))
+        val action = intent.action ?: return
+        if (action == Intent.ACTION_MEDIA_BUTTON) {
+            @Suppress("DEPRECATION")
+            val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT) ?: return
+            val index = CarPlayMediaButton.forKeyCode(event.keyCode)
+            if (index != null && event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                android.util.Log.i("DiPlay-MediaKeys", "MediaButton received: ${KeyEvent.keyCodeToString(event.keyCode)} -> HID $index")
+                CarPlayMediaKeys.onHardwareMediaButton(index, KeyEvent.keyCodeToString(event.keyCode))
+                if (isOrderedBroadcast) abortBroadcast()
+            }
+        } else if (action == "com.android.music.musicservicecommand") {
+            val cmd = intent.getStringExtra("command")
+            val index = CarPlayMediaButton.forCommand(cmd)
+            if (index != null) {
+                android.util.Log.i("DiPlay-MediaKeys", "MusicServiceCommand received: $cmd -> HID $index")
+                CarPlayMediaKeys.onHardwareMediaButton(index, "musicservicecommand:$cmd")
+                if (isOrderedBroadcast) abortBroadcast()
+            }
         }
     }
 }

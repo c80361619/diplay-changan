@@ -3548,8 +3548,7 @@ class CarPlayHostActivity : ComponentActivity() {
 
     private fun showDiPlayHome(page: String = "home") {
         controller?.sendTouch(emptyList())
-        startActivity(Intent(this, DiPlayActivity::class.java)
-            .putExtra("page", page).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+        startActivity(Intent(this, DiPlayActivity::class.java).putExtra("page", page))
     }
 
     private fun openSettingsMenu() = showDiPlayHome("settings")

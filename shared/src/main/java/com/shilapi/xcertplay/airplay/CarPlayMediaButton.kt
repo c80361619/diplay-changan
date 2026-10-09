@@ -32,13 +32,37 @@ object CarPlayMediaButton {
 
     /** The CarPlay press for [keyCode], or null when the key is not a media key CarPlay handles. */
     fun forKeyCode(keyCode: Int): Int? = when (keyCode) {
-        KeyEvent.KEYCODE_MEDIA_NEXT -> NEXT
-        KeyEvent.KEYCODE_MEDIA_PREVIOUS -> PREVIOUS
+        KeyEvent.KEYCODE_MEDIA_NEXT,
+        KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
+        KeyEvent.KEYCODE_PAGE_DOWN,
+        KeyEvent.KEYCODE_CHANNEL_UP,
+        272, // KEYCODE_MEDIA_SKIP_FORWARD (API 21)
+        274, // KEYCODE_MEDIA_STEP_FORWARD (API 21)
+        -> NEXT
+
+        KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+        KeyEvent.KEYCODE_MEDIA_REWIND,
+        KeyEvent.KEYCODE_PAGE_UP,
+        KeyEvent.KEYCODE_CHANNEL_DOWN,
+        273, // KEYCODE_MEDIA_SKIP_BACKWARD (API 21)
+        275, // KEYCODE_MEDIA_STEP_BACKWARD (API 21)
+        -> PREVIOUS
+
         KeyEvent.KEYCODE_MEDIA_PLAY,
         KeyEvent.KEYCODE_MEDIA_PAUSE,
         KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
         KeyEvent.KEYCODE_HEADSETHOOK,
-        KEYCODE_BYD_AUTO_MEDIA_PLAY_PAUSE -> PLAY_PAUSE
+        KEYCODE_BYD_AUTO_MEDIA_PLAY_PAUSE,
+        -> PLAY_PAUSE
+
+        else -> null
+    }
+
+    /** Translates broadcast command strings (e.g. musicservicecommand) to CarPlay media buttons. */
+    fun forCommand(command: String?): Int? = when (command?.lowercase()) {
+        "next", "skip_next", "forward" -> NEXT
+        "prev", "previous", "skip_prev", "backward", "rewind" -> PREVIOUS
+        "play", "pause", "play_pause", "togglepause", "stop" -> PLAY_PAUSE
         else -> null
     }
 }

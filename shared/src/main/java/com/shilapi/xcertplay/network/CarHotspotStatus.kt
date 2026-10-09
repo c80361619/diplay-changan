@@ -42,11 +42,23 @@ object CarHotspotStatus {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) return null
         val wifi = context.applicationContext.getSystemServiceCompat(WifiManager::class.java) ?: return null
         return runCatching {
-            WifiManager::class.java.getMethod(
+            // Android 4.4 单芯片通常不支持 STA 和 AP 并发；若 Wi-Fi 客户端已开启，需先关闭
+            if (runCatching { wifi.isWifiEnabled }.getOrDefault(false)) {
+                runCatching { wifi.isWifiEnabled = false }
+            }
+            val method = WifiManager::class.java.getMethod(
                 "setWifiApEnabled",
                 WifiConfiguration::class.java,
                 Boolean::class.javaPrimitiveType,
-            ).invoke(wifi, null, true) as Boolean
+            )
+            // 先尝试带现有配置开启，避免部分定制 ROM 在 config 为 null 时在 WifiStateMachine 中抛 NPE
+            val savedConfig = runCatching {
+                WifiManager::class.java.getMethod("getWifiApConfiguration").invoke(wifi) as? WifiConfiguration
+            }.getOrNull()
+            val result = if (savedConfig != null) {
+                runCatching { method.invoke(wifi, savedConfig, true) as Boolean }.getOrDefault(false)
+            } else false
+            if (result) true else method.invoke(wifi, null, true) as Boolean
         }.getOrNull()
     }
 }
