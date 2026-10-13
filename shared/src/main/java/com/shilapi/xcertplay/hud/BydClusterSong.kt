@@ -32,8 +32,9 @@ internal class ClusterSongState {
             val nextTitle = runCatching { item.optionalString(TITLE) }.getOrNull()
             if (nextTitle != null) {
                 title = nextTitle
-                artist = runCatching { item.optionalString(ARTIST) }.getOrNull()
-            } else {
+                if (nextTitle.isBlank()) artist = null
+            }
+            if (nextTitle?.isBlank() != true) {
                 runCatching { item.optionalString(ARTIST) }.getOrNull()?.let { artist = it }
             }
         }

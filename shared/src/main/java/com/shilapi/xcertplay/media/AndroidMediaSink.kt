@@ -917,9 +917,12 @@ private class AudioRenderer(
             )
         }
         codec = try {
-            MediaCodec.createDecoderByType(mime).also {
-                it.configure(mediaFormat, null, null, 0)
-                it.start()
+            MediaCodecStartup.create(
+                create = { MediaCodec.createDecoderByType(mime) },
+                configure = { it.configure(mediaFormat, null, null, 0) },
+                start = { it.start() },
+                release = { it.release() },
+            ).also {
                 Log.i(TAG, "audio decoder configured mime=$mime name=${it.name}")
             }
         } catch (error: Exception) {

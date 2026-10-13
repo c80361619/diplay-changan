@@ -107,6 +107,19 @@
                 <action android:name="com.android.music.musicservicecommand" />
             </intent-filter>
         </receiver>
+
+        <!-- Accessibility service to automatically confirm USB permission prompt for CarPlay -->
+        <service
+            android:name="com.shilapi.xcertplay.UsbAutoConfirmService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/usb_auto_confirm_service_config" />
+        </service>
     </application>
 
 </manifest>

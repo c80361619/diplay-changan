@@ -90,9 +90,13 @@ class CarPlayVpnService : VpnService() {
                 .addAddress(linkLocal, LINK_PREFIX)
                 .addRoute(LINK_LOCAL_ROUTE, LINK_PREFIX)
                 .setSession(SESSION_NAME)
-                .setMtu(TUN_MTU)
-                // VpnService.Builder.setBlocking is API 21; KitKat fds are always blocking.
-                .apply { if (android.os.Build.VERSION.SDK_INT >= 21) setBlocking(true) }
+                // VpnService.Builder.setBlocking and addAllowedApplication are API 21; KitKat fds are always blocking.
+                .apply {
+                    if (android.os.Build.VERSION.SDK_INT >= 21) {
+                        setBlocking(true)
+                        addAllowedApplication(packageName)
+                    }
+                }
                 .establish()
                 ?: throw IOException("VpnService.establish returned null")
             tun = tunFd

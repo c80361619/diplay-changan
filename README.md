@@ -52,6 +52,15 @@
 - **纯原生 UI 重构**：剥离高版本 Jetpack Compose，全面采用轻量原生 View，彻底规避 Dalvik 虚拟机的 LinearAlloc 限制与内存崩溃，极速冷启动；
 - **系统 ROM 避坑**：修复飞思卡尔主题解析十六进制颜色字面量引发的 `NotFoundException` 崩溃；支持免 ADB 导出崩溃日志至 `/sdcard/Download/diplay-crash.log`。
 
+### 8. 媒体元数据高频广播内存防泄漏优化（PR #162）
+- 拦截 iPhone 每秒 2 次的播放进度高频更新中携带的位图封面广播，仅在歌名、歌手或封面真正改变时才重新发布 `MediaMetadata`，彻底解决跨进程传递 Bitmap 导致的 `system_server` 内存暴涨与车机卡死崩溃。
+
+### 9. 硬件解码器异常安全释放（MediaCodecStartup）
+- 封装硬件编解码器创建与配置流程，在底层驱动抛出异常时自动强制执行 `release()`，防止飞思卡尔 i.MX6 CODA960 硬件解码通道耗尽导致的永久黑屏。
+
+### 10. 有线 USB 权限弹窗自动确认（UsbAutoConfirmService）
+- 针对有线插拔 iPhone 频繁弹出的系统 USB 权限确认框，提供纯原生无障碍辅助服务，自动勾选“默认”并点击“确定”，彻底免除手动确认的烦恼。
+
 ---
 
 ## 使用指南

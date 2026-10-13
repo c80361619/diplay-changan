@@ -108,14 +108,19 @@ internal object CarPlayMediaKeys {
         mainHandler.post {
             synchronized(this) {
                 if (controller !== expected) return@synchronized
+                val previousArtwork = artwork
                 if (nowPlaying.artworkTransferId != update.artworkTransferId) {
                     artwork = update.artworkTransferId?.let { id ->
                         if (artworkCache.containsKey(id)) artworkCache[id] else null
                     }
                 }
                 if (nowPlaying.elapsedMillis != update.elapsedMillis) elapsedUpdatedAt = SystemClock.elapsedRealtime()
+                val metadataChanged = metadataChanged(nowPlaying, update) || artwork !== previousArtwork
                 nowPlaying = update
-                session?.setMetadata(androidMetadata(update, artwork))
+                // The iPhone repeats NowPlayingUpdate about twice a second for the position alone.
+                // Republishing the metadata each time sends a copy of the artwork through system_server
+                // to every media listener, leaking memory and triggering LMK.
+                if (metadataChanged) session?.setMetadata(androidMetadata(update, artwork))
                 publishPlaybackStateLocked()
             }
         }
@@ -227,6 +232,10 @@ internal object CarPlayMediaKeys {
                 .build(),
         )
     }
+
+    /** Whether [next] changes what the media session's metadata shows; position and play state do not. */
+    internal fun metadataChanged(previous: CarPlayNowPlaying, next: CarPlayNowPlaying): Boolean =
+        previous.copy(elapsedMillis = null, playing = false) != next.copy(elapsedMillis = null, playing = false)
 
     private fun send(index: Int, source: String) {
         // While the car's video player is on screen the wheel drives it: a CarPlay play/pause would

@@ -315,6 +315,15 @@ class DiPlayActivity : ComponentActivity() {
         section(content, getString(R.string.automatic_connection), R.drawable.ic_dp_automation) { card ->
             toggle(card, getString(R.string.connect_when_diplay_opens), getString(R.string.use_your_last_connection_type_and_selected_iphone), DiPlayPreferences.autoConnect(this)) { DiPlayPreferences.saveAutoConnect(this, it) }
             toggle(card, getString(R.string.open_after_the_car_starts), getString(R.string.availability_depends_on_your_head_unit_s_startup_settings), AirPlayPersistence.loadAutoStartOnBoot(this)) { AirPlayPersistence.saveAutoStartOnBoot(this, it) }
+            val autoConfirmEnabled = UsbAutoConfirmService.isEnabled(this)
+            card.addView(button(
+                if (autoConfirmEnabled) "自动确认 USB 权限：已开启" else "设置自动确认 USB 权限",
+                false,
+            ) {
+                if (!UsbAutoConfirmService.openSettings(this)) {
+                    toast("请在车机系统设置中开启“自动确认 USB 权限”无障碍服务")
+                }
+            }, matchButton(10, 56))
             card.addView(button("${getString(R.string.choose_iphone_prefix)}${DiPlayPreferences.phoneName(this)}", false) { choosePhone() }, matchButton(12, 60))
         }
         section(content, getString(R.string.display_and_performance), R.drawable.ic_dp_display) { card ->

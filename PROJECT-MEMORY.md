@@ -61,7 +61,21 @@
 - **根因**：`KEY_LOCATION_REPORTING_ENABLED` 默认值为 `false`，未开启前车机完全不向 iPhone 上报 GPS，导致 iPhone 导航依靠手机自身弱信号漂移。
 - **方案**：将默认值改为 `true`，连接后自动通过车机 GPS 芯片将 NMEA 经纬度/航向/速度上报给 iPhone。
 
-### 3.7 飞思卡尔专属历史踩坑（已固化在仓库中）
+### 3.8 媒体元数据高频传输内存防泄漏优化（PR #162）
+- **根因**：iPhone 播放音乐时每秒发送约 2 次 NowPlayingUpdate 仅更新播放进度。原版每次都跨进程向系统重新发布附带完整专辑封面 Bitmap 的 `MediaMetadata`，导致 `system_server` 内存以 ~3MB/s 暴涨，触发系统 LMK 杀进程甚至车机卡死。
+- **方案**：在 `CarPlayMediaKeys` 引入 `metadataChanged` 比对，仅在歌名、歌手或封面真正改变时才调用 `session?.setMetadata`，播放进度直接走 lightweight 的 `playbackState`，彻底杜绝系统内存泄漏。
+
+### 3.9 硬件编解码器异常安全释放（MediaCodecStartup）
+- **根因**：飞思卡尔 i.MX6 CODA960 硬件解码通道仅有单实例，原版在 `configure()` 或 `start()` 抛出异常时未显式 `release()`，底层驱动未清理导致后续投屏反复黑屏。
+- **方案**：引入 `MediaCodecStartup` 包装，异常时强制执行 `release(candidate)` 释放底层句柄，增强容灾稳定性。
+
+### 3.10 USB 权限免确认无障碍服务（UsbAutoConfirmService）
+- **方案**：针对有线连接 CarPlay 每次插拔弹出系统“允许应用访问 USB 设备”对话框问题，引入纯原生 `UsbAutoConfirmService`（基于 AccessibilityService，完全兼容 Android 4.4.2 API 19），自动勾选“默认”并点击“确定”；并在主界面提供便捷引导开关。
+
+### 3.11 VpnService 作用域隔离与 Android 4.4.2 API 兼容保护
+- **方案**：针对有线 NCM 模式的 VPN 作用域限制，在调用 API 21 的 `addAllowedApplication(packageName)` 时增加 `Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP` 版本保护，确保在 Android 4.4.2 KitKat 上不发生 `NoSuchMethodError` 崩溃。
+
+### 3.12 飞思卡尔专属历史踩坑（已固化在仓库中）
 - **主题背景 Crash**：飞思卡尔 i.MX6 ROM 在 `PhoneWindow.generateLayout` 中对主题 `windowBackground` 反查资源名，十六进制颜色字面量（如 `#0C111B`）会导致 `NotFoundException(0x0)` 闪退。必须使用 `@drawable/window_background` 的 shape drawable 引用。
 - **IPv4 套接字绑定**：部分老 Linux 内核不支持在 IPv6 `::` 上接收 IPv4 流量，无线会话强制绑定 `0.0.0.0`。
 - **jmDNS 兼容改造**：内嵌 jmDNS 3.6.3 源码改写为 Java 7 纯语法（去除 Stream/Lambda/Map 默认方法），且在绑定 UDP 5353 前预先开启 `SO_REUSEADDR` 避免与车机系统 `mdnsd` 冲突。
