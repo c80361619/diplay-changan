@@ -81,6 +81,18 @@
 - **jmDNS 兼容改造**：内嵌 jmDNS 3.6.3 源码改写为 Java 7 纯语法（去除 Stream/Lambda/Map 默认方法），且在绑定 UDP 5353 前预先开启 `SO_REUSEADDR` 避免与车机系统 `mdnsd` 冲突。
 - **免 ADB 崩溃日志**：未捕获异常自动写入 `/sdcard/Download/diplay-crash.log`，方便 U 盘拷出。
 
+### 3.13 车机导航栏强力隐藏与全屏模式（CarFullscreenHelper）
+- **根因**：原版仅依赖 `WindowInsetsControllerCompat`，在定制车机 ROM（如 Android 4.4~10）上触摸屏幕即导致导航栏弹回；且部分车机侧边栏走 SystemUI 定制广播。
+- **方案**：引入 `CarFullscreenHelper`，结合底层 `SYSTEM_UI_FLAG_IMMERSIVE_STICKY` 粘性标志、800ms 触摸防回弹重新隐藏机制，并集成比亚迪 DiLink、掌讯 TS、方易通 FYT、鼎微等各大车机定制全屏广播，退出时自动恢复，实现纯净满屏显示。
+
+### 3.14 全局快捷悬浮小白点（AssistiveBallOverlay）
+- **根因**：很多原厂车机桌面自带白名单不显示第三方图标，车主每次使用都要进工程模式启动；误触离开后无法方便切回。
+- **方案**：引入纯原生 `AssistiveBallOverlay`。
+  1. 智能生命周期：在 DiPlay 界面中自动隐藏不挡投屏；离开应用退回桌面或其他 App 时自动浮现在屏幕边缘；
+  2. 秒回应用：点击小白点自动判断是否有投屏会话，正在连接时秒回 `CarPlayHostActivity`，未连接时秒回 `DiPlayActivity`；
+  3. 自由拖动吸附与记忆：支持随手拖拽并在松手后靠边吸附，坐标持久化保存；
+  4. 兼容性：适配 Android 4.4.2 API 19（`TYPE_PHONE`）至 Android 14+（`TYPE_APPLICATION_OVERLAY`），无需系统额外依赖。
+
 ---
 
 ## 4. 构建与发布指南

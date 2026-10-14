@@ -873,6 +873,7 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        CarFullscreenHelper.broadcastHeadUnitNavBarState(this, hide = false)
         clusterMonitor?.stop()
         mainHandler.removeCallbacks(hideIdleCenterMap)
         homeMonitor?.stop()
@@ -2164,6 +2165,23 @@ class CarPlayHostActivity : ComponentActivity() {
                 hideBottomBar = checked
                 applyFullscreenMode()
                 refreshDisplaySizeAfterLayout()
+            },
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(10) },
+        )
+        section.addView(
+            settingsSwitchRow(
+                label = getString(R.string.assistive_ball_title),
+                checked = AssistiveBallOverlay.isEnabled(this),
+                description = getString(R.string.assistive_ball_description),
+            ) { checked ->
+                if (checked && !AssistiveBallOverlay.permitted(this)) {
+                    val intent = Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName"))
+                    runCatching { startActivity(intent) }
+                }
+                AssistiveBallOverlay.setEnabled(this, checked)
             },
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -3827,20 +3845,29 @@ class CarPlayHostActivity : ComponentActivity() {
     private fun applyFullscreenMode() {
         val hideTop = hideTopBar
         val hideBottom = hideBottomBar
-        WindowCompat.setDecorFitsSystemWindows(window, !(hideTop && hideBottom))
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        if (hideTop) {
-            controller.hide(WindowInsetsCompat.Type.statusBars())
+        val forceCarFullscreen = AirPlayPersistence.loadForceCarFullscreen(this)
+        if (forceCarFullscreen || (hideTop && hideBottom)) {
+            CarFullscreenHelper.applyFullscreen(this, hideStatusBar = hideTop, hideNavBar = hideBottom)
+            CarFullscreenHelper.setupContinuousFullscreen(this)
         } else {
-            controller.show(WindowInsetsCompat.Type.statusBars())
+            WindowCompat.setDecorFitsSystemWindows(window, !(hideTop && hideBottom))
+            val controller = WindowInsetsControllerCompat(window, window.decorView)
+            if (hideTop) {
+                controller.hide(WindowInsetsCompat.Type.statusBars())
+            } else {
+                controller.show(WindowInsetsCompat.Type.statusBars())
+            }
+            if (hideBottom) {
+                controller.hide(WindowInsetsCompat.Type.navigationBars())
+            } else {
+                controller.show(WindowInsetsCompat.Type.navigationBars())
+            }
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (!hideBottom) {
+                CarFullscreenHelper.broadcastHeadUnitNavBarState(this, hide = false)
+            }
         }
-        if (hideBottom) {
-            controller.hide(WindowInsetsCompat.Type.navigationBars())
-        } else {
-            controller.show(WindowInsetsCompat.Type.navigationBars())
-        }
-        controller.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

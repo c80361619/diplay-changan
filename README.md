@@ -2,7 +2,7 @@
 
 **专为长安 CS75 2018款原厂车机打造的免盒子原生 Apple CarPlay 投屏应用。**
 
-[📦 立即下载最新 APK (v1.0.1-cs75)](https://github.com/c80361619/diplay-changan/releases/download/v1.0.1-cs75/DiPlay-Changan-CS75-v1.0.1.apk) · [🚀 Releases 发行版列表](https://github.com/c80361619/diplay-changan/releases)
+[📦 立即下载最新 APK (v1.0.2-cs75)](https://github.com/c80361619/diplay-changan/releases/download/v1.0.2-cs75/DiPlay-Changan-CS75-v1.0.2.apk) · [🚀 Releases 发行版列表](https://github.com/c80361619/diplay-changan/releases)
 
 本项目基于开源项目 [DiPlay](https://github.com/shihabal3amri/DiPlay) 进行深度二次开发与底层架构降级改造，针对长安 CS75 2018款搭载的**飞思卡尔（Freescale / NXP）i.MX6 芯片及 Android 4.4.2 KitKat 系统**进行了专项适配与深度性能调优，实现无需外接 CarPlay 盒子、无需手机越狱、原车机直接安装即可使用。
 
@@ -60,6 +60,15 @@
 
 ### 10. 有线 USB 权限弹窗自动确认（UsbAutoConfirmService）
 - 针对有线插拔 iPhone 频繁弹出的系统 USB 权限确认框，提供纯原生无障碍辅助服务，自动勾选“默认”并点击“确定”，彻底免除手动确认的烦恼。
+
+### 11. 全屏沉浸与车机定制导航栏强力隐藏（解决左侧导航栏碍事问题）
+- 采用底层 `SYSTEM_UI_FLAG_IMMERSIVE_STICKY` 粘性沉浸机制与 800ms 触摸防回弹保护；
+- 深度联动各大品牌车机系统广播（支持比亚迪 DiLink、掌讯 TS、方易通 FYT、鼎微等），进入 DiPlay 或投屏后强力收起车机左侧/底部导航栏，退出时自动恢复，实现纯净满屏显示。
+
+### 12. 全局快捷悬浮小白点（解决原车桌面无图标需进工程模式痛点）
+- 针对车机原厂桌面限制第三方图标、离开应用后难以返回的问题，打造轻量级全局半透明悬浮球；
+- **智能生命周期**：在 DiPlay 界面中自动隐身不遮挡画面；离开应用退回车机桌面或其他 App 时自动浮现于屏幕边缘；
+- **秒回应用**：单击即可一键秒回投屏或设置主页，无需频繁进入工程模式；支持随手拖动与屏幕边缘吸附记忆。
 
 ---
 

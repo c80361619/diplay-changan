@@ -73,6 +73,8 @@ object AirPlayPersistence {
     private const val KEY_RIGHT_HAND_DRIVE = "right_hand_drive"
     private const val KEY_HIDE_TOP_BAR = "hide_top_bar"
     private const val KEY_HIDE_BOTTOM_BAR = "hide_bottom_bar"
+    private const val KEY_ASSISTIVE_BALL_ENABLED = "assistive_ball_enabled"
+    private const val KEY_FORCE_CAR_FULLSCREEN = "force_car_fullscreen"
     private const val KEY_SAFE_AREA_DRAW_OUTSIDE = "safe_area_draw_outside"
     private const val KEY_AUTO_START_ON_BOOT = "auto_start_on_boot"
     private const val KEY_LOCATION_REPORTING_ENABLED = "location_reporting_enabled"
@@ -563,6 +565,26 @@ object AirPlayPersistence {
     fun saveHideBottomBar(context: Context, hide: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean(KEY_HIDE_BOTTOM_BAR, hide)
+            .apply()
+    }
+
+    fun loadAssistiveBallEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_ASSISTIVE_BALL_ENABLED, false)
+
+    fun saveAssistiveBallEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_ASSISTIVE_BALL_ENABLED, enabled)
+            .apply()
+    }
+
+    fun loadForceCarFullscreen(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_FORCE_CAR_FULLSCREEN, true)
+
+    fun saveForceCarFullscreen(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_FORCE_CAR_FULLSCREEN, enabled)
             .apply()
     }
 

@@ -481,4 +481,9 @@
     <string name="usb_auto_confirm_title">自动确认 USB 权限</string>
     <string name="usb_auto_confirm_subtitle">有线连接 iPhone 时自动确认系统 USB 权限弹窗（需要无障碍服务）</string>
     <string name="usb_auto_confirm_desc">在出现 CarPlay USB 权限弹窗时自动勾选默认并点击确定</string>
+    <string name="assistive_ball_title">快捷悬浮小白点</string>
+    <string name="assistive_ball_description">离开 DiPlay 回到车机桌面或其他应用时显示半透明悬浮球，点击可秒回 DiPlay，无需再次进入工程模式。可随意拖动并贴边保存位置。</string>
+    <string name="assistive_ball_overlay_missing">悬浮窗权限未开启，请先允许“显示在其他应用上层”</string>
+    <string name="car_fullscreen_title">车机导航栏强力隐藏（全屏模式）</string>
+    <string name="car_fullscreen_description">进入 DiPlay 或连上 CarPlay 投屏后，自动隐藏车机左侧/底部导航栏并锁定全屏沉浸，防止车机侧边栏挡住画面。退出时自动恢复。</string>
 </resources>

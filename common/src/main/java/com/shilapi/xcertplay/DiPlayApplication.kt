@@ -27,6 +27,32 @@ class DiPlayApplication : Application() {
         MultiDex.install(this)
     }
 
+    private var startedActivityCount = 0
+
+    override fun onCreate() {
+        super.onCreate()
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityStarted(activity: android.app.Activity) {
+                startedActivityCount++
+                AssistiveBallOverlay.onDiPlayForeground()
+            }
+
+            override fun onActivityStopped(activity: android.app.Activity) {
+                startedActivityCount--
+                if (startedActivityCount <= 0) {
+                    startedActivityCount = 0
+                    AssistiveBallOverlay.onDiPlayBackground(this@DiPlayApplication)
+                }
+            }
+
+            override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) = Unit
+            override fun onActivityResumed(activity: android.app.Activity) = Unit
+            override fun onActivityPaused(activity: android.app.Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) = Unit
+            override fun onActivityDestroyed(activity: android.app.Activity) = Unit
+        })
+    }
+
     private fun installCrashLogger() {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->

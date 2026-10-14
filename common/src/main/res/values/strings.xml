@@ -481,4 +481,9 @@
     <string name="usb_auto_confirm_title">Auto-confirm USB permission</string>
     <string name="usb_auto_confirm_subtitle">Automatically accept the Android USB permission prompt when an iPhone is connected via cable (requires Accessibility Service)</string>
     <string name="usb_auto_confirm_desc">Automatically checks Always allow and confirms the Android USB accessory prompt for CarPlay</string>
+    <string name="assistive_ball_title">Assistive Floating Ball</string>
+    <string name="assistive_ball_description">Shows a floating ball when leaving DiPlay to return to the car desktop, tapping it quickly returns to DiPlay without engineering mode. Draggable and dockable.</string>
+    <string name="assistive_ball_overlay_missing">Overlay permission missing. Please allow display over other apps.</string>
+    <string name="car_fullscreen_title">Force Hide Head Unit Navigation Bar</string>
+    <string name="car_fullscreen_description">Automatically hides the car head unit\'s left/bottom navigation bar upon entering DiPlay or connecting CarPlay, providing true immersive fullscreen. Restores when leaving.</string>
 </resources>

@@ -99,14 +99,19 @@ class DiPlayActivity : ComponentActivity() {
         // Best-effort boot steps: none of these may take the whole app down on an exotic ROM.
         runCatching { com.shilapi.xcertplay.hud.BydNavigationOutputs.onAppOpened(applicationContext) }
             .onFailure { Log.w("DiPlay", "BYD navigation init skipped", it) }
-        runCatching {
-            WindowCompat.setDecorFitsSystemWindows(window, true)
-            if (Build.VERSION.SDK_INT >= 21) { window.statusBarColor = BG; window.navigationBarColor = BG }
-            WindowInsetsControllerCompat(window, window.decorView).apply {
-                isAppearanceLightStatusBars = false
-                hide(WindowInsetsCompat.Type.statusBars())
-            }
-        }.onFailure { Log.w("DiPlay", "window chrome setup skipped", it) }
+        if (AirPlayPersistence.loadForceCarFullscreen(this)) {
+            CarFullscreenHelper.applyFullscreen(this, hideStatusBar = true, hideNavBar = true)
+            CarFullscreenHelper.setupContinuousFullscreen(this)
+        } else {
+            runCatching {
+                WindowCompat.setDecorFitsSystemWindows(window, true)
+                if (Build.VERSION.SDK_INT >= 21) { window.statusBarColor = BG; window.navigationBarColor = BG }
+                WindowInsetsControllerCompat(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = false
+                    hide(WindowInsetsCompat.Type.statusBars())
+                }
+            }.onFailure { Log.w("DiPlay", "window chrome setup skipped", it) }
+        }
         setupError = runCatching { DiPlayBootstrap.ensure(this) }.exceptionOrNull()?.let {
             android.util.Log.e("DiPlaySetup", "CarPlay authentication could not be loaded", it)
             getString(R.string.setup_error_auth)
@@ -147,8 +152,25 @@ class DiPlayActivity : ComponentActivity() {
         if (!isFinishing && !isChangingConfigurations) CenterMapOverlay.scheduleShow()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        if (!CarPlayBackgroundSession.hasSession()) {
+            CarFullscreenHelper.broadcastHeadUnitNavBarState(this, hide = false)
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && AirPlayPersistence.loadForceCarFullscreen(this)) {
+            CarFullscreenHelper.applyFullscreen(this, hideStatusBar = true, hideNavBar = true)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        if (AirPlayPersistence.loadForceCarFullscreen(this)) {
+            CarFullscreenHelper.applyFullscreen(this, hideStatusBar = true, hideNavBar = true)
+        }
         if (Build.VERSION.SDK_INT < 33 && AppLocale.preference(this) != languagePreferenceAtCreate) {
             recreate()
             return
@@ -337,8 +359,27 @@ class DiPlayActivity : ComponentActivity() {
             choice(card, getString(R.string.frame_rate), listOf(getString(R.string.s_30_fps_lighter_load), getString(R.string.s_60_fps_smoother_motion)), if (AirPlayPersistence.loadFps(this) == 60) 1 else 0) { AirPlayPersistence.saveFps(this, if (it == 1) 60 else 30) }
             toggle(card, getString(R.string.efficient_video), getString(R.string.use_hevc_leave_off_for_the_widest_head_unit_compatibility), AirPlayPersistence.loadHevcEnabled(this)) { AirPlayPersistence.saveHevcEnabled(this, it) }
             toggle(card, getString(R.string.right_hand_drive), getString(R.string.place_carplay_s_controls_closer_to_the_driver), AirPlayPersistence.loadRightHandDrive(this)) { AirPlayPersistence.saveRightHandDrive(this, it) }
-            toggle(card, getString(R.string.full_screen), getString(R.string.hide_the_car_s_system_bars_while_carplay_is_open), AirPlayPersistence.loadHideTopBar(this) && AirPlayPersistence.loadHideBottomBar(this)) {
-                AirPlayPersistence.saveHideTopBar(this, it); AirPlayPersistence.saveHideBottomBar(this, it)
+            toggle(card, getString(R.string.car_fullscreen_title), getString(R.string.car_fullscreen_description), AirPlayPersistence.loadForceCarFullscreen(this)) {
+                AirPlayPersistence.saveForceCarFullscreen(this, it)
+                AirPlayPersistence.saveHideTopBar(this, it)
+                AirPlayPersistence.saveHideBottomBar(this, it)
+                if (it) {
+                    CarFullscreenHelper.applyFullscreen(this, hideStatusBar = true, hideNavBar = true)
+                    CarFullscreenHelper.setupContinuousFullscreen(this)
+                } else {
+                    CarFullscreenHelper.restoreSystemBars(this)
+                }
+                render()
+            }
+            toggle(card, getString(R.string.assistive_ball_title), getString(R.string.assistive_ball_description), AssistiveBallOverlay.isEnabled(this)) { enabled ->
+                if (enabled && !AssistiveBallOverlay.permitted(this)) {
+                    openOverlayPermission()
+                }
+                AssistiveBallOverlay.setEnabled(this, enabled)
+                render()
+            }
+            if (AssistiveBallOverlay.isEnabled(this) && !AssistiveBallOverlay.permitted(this)) {
+                card.addView(label(getString(R.string.assistive_ball_overlay_missing), 14, WARNING))
             }
         }
         section(content, getString(R.string.audio_routing)) { card ->
