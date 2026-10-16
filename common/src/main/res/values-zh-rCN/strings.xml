@@ -390,6 +390,9 @@
     <string name="wireless_carplay_control_running">无线 CarPlay 控制通道运行中</string>
     <string name="wireless_carplay_transport">无线 CarPlay 连接</string>
     <string name="wireless_connection_help">无线连接帮助</string>
+    <string name="faq_troubleshooting">常见问题与排错 (FAQ)</string>
+    <string name="faq_troubleshooting_title">常见问题与解决办法</string>
+    <string name="faq_troubleshooting_content">1. 音乐响一秒就自动暂停 / 停止：\n• 解决方式：将车机本地音乐或 USB 音乐调成“蓝牙音乐”或 AUX 模式即可，避免原车播放器抢占音频通道。\n\n2. CarPlay 高德地图导航播报没有声音：\n• 解决方式：打开手机端高德地图 App ➜ 我的 ➜ 右上角设置 ➜ 导航设置 ➜ 更多 ➜ CarPlay 设置，把【导航声道】修改为【媒体声道】。</string>
     <string name="wireless_hotspot_off">无线热点：关闭</string>
     <string name="wireless_permissions">无线连接权限</string>
     <string name="wpa2">WPA2</string>

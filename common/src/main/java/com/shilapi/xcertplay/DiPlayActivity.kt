@@ -572,6 +572,7 @@ class DiPlayActivity : ComponentActivity() {
             card.addView(button(getString(R.string.app_permissions), false) { openSystem(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }, matchButton(16, 60))
             card.addView(button(getString(R.string.bluetooth_settings), false) { openSystem(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }, matchButton(10, 60))
             card.addView(button(getString(R.string.wireless_connection_help), false) { wirelessHelp() }, matchButton(10, 60))
+            card.addView(button(getString(R.string.faq_troubleshooting), false) { faqHelp() }, matchButton(10, 60))
         }
         section(content, getString(R.string.about), R.drawable.ic_dp_about) { card ->
             card.addView(button(getString(R.string.about_diplay), false) { page = "about"; render() }, matchButton(0, 60))
@@ -1079,6 +1080,12 @@ class DiPlayActivity : ComponentActivity() {
             .setNeutralButton(getString(R.string.reset_carplay_wi_fi)) { _, _ ->
                 confirmWirelessReset()
             }.show()
+    }
+
+    private fun faqHelp() {
+        AlertDialog.Builder(this).setTitle(getString(R.string.faq_troubleshooting_title))
+            .setMessage(getString(R.string.faq_troubleshooting_content))
+            .setPositiveButton(getString(R.string.got_it), null).show()
     }
 
     private fun handleWirelessRecovery() {

@@ -391,6 +391,9 @@
     <string name="wireless_carplay_control_running">Wireless CarPlay control running</string>
     <string name="wireless_carplay_transport">Wireless CarPlay transport</string>
     <string name="wireless_connection_help">Wireless connection help</string>
+    <string name="faq_troubleshooting">Troubleshooting &amp; FAQ</string>
+    <string name="faq_troubleshooting_title">Common Issues &amp; Solutions</string>
+    <string name="faq_troubleshooting_content">1. CarPlay music plays for 1 second and stops:\n• Solution: Switch the car\'s built-in media source from Local/USB Music to "Bluetooth Audio" or AUX to prevent the car player from seizing audio focus.\n\n2. Navigation (Amap / AutoNavi) has no voice prompt:\n• Solution: On iPhone Amap App -> Me -> Settings -> Navigation Settings -> More -> CarPlay Settings, change "Navigation Channel" to "Media Channel".</string>
     <string name="wireless_hotspot_off">Wireless hotspot: off</string>
     <string name="wireless_permissions">Wireless permissions</string>
     <string name="wpa2">WPA2</string>
