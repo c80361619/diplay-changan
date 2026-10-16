@@ -16,8 +16,8 @@ android {
         // KitKat port: wired CarPlay targets API 19+ (Android 4.4).
         minSdk = 19
         targetSdk = 19
-        versionCode = 30
-        versionName = "0.2.11-kitkat"
+        versionCode = 31
+        versionName = "0.2.12-kitkat"
         // BouncyCastle + jmdns + the protocol stack exceed 64K methods.
         multiDexEnabled = true
 

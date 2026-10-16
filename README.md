@@ -2,7 +2,7 @@
 
 **专为长安 CS75 2018款原厂车机打造的免盒子原生 Apple CarPlay 投屏应用。**
 
-[📦 立即下载最新 APK (v1.0.2-cs75)](https://github.com/c80361619/diplay-changan/releases/download/v1.0.2-cs75/DiPlay-Changan-CS75-v1.0.2.apk) · [🚀 Releases 发行版列表](https://github.com/c80361619/diplay-changan/releases)
+[📦 立即下载最新 APK (v1.0.3-cs75)](https://github.com/c80361619/diplay-changan/releases/download/v1.0.3-cs75/DiPlay-Changan-CS75-v1.0.3.apk) · [🚀 Releases 发行版列表](https://github.com/c80361619/diplay-changan/releases)
 
 本项目基于开源项目 [DiPlay](https://github.com/shihabal3amri/DiPlay) 进行深度二次开发与底层架构降级改造，针对长安 CS75 2018款搭载的**飞思卡尔（Freescale / NXP）i.MX6 芯片及 Android 4.4.2 KitKat 系统**进行了专项适配与深度性能调优，实现无需外接 CarPlay 盒子、无需手机越狱、原车机直接安装即可使用。
 
@@ -69,6 +69,11 @@
 - 针对车机原厂桌面限制第三方图标、离开应用后难以返回的问题，打造轻量级全局半透明悬浮球；
 - **智能生命周期**：在 DiPlay 界面中自动隐身不遮挡画面；离开应用退回车机桌面或其他 App 时自动浮现于屏幕边缘；
 - **秒回应用**：单击即可一键秒回投屏或设置主页，无需频繁进入工程模式；支持随手拖动与屏幕边缘吸附记忆。
+
+### 13. 无线 CarPlay 默认优先 IPv4 与协议族切换（解决反复重连连接不上问题）
+- **根因修复**：解决原版默认向 iPhone 发布 IPv6 link-local 地址导致的车机内核静默丢包问题；
+- **IPv4 优先**：内置 `HotspotAddressPolicy` 全面锁定默认优先使用可路由的 IPv4 地址，iPhone 秒级建立 TCP 握手，彻底消除“一直重连连接不上”的死循环；
+- **智能容灾与界面切换**：支持超时自动翻转（flip）协议族容灾；在“连接设置”中提供清晰的“无线 IP 协议族”卡片（**IPv4（推荐 / 默认）** / **IPv6** / **自动故障切换**），方便自主灵活调整。
 
 ---
 

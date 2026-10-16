@@ -632,6 +632,7 @@ class DiPlayActivity : ComponentActivity() {
         content.addView(label(getString(R.string.connection_setup), 34, TEXT, true))
         content.addView(label(getString(R.string.set_up_once_your_details_stay_saved_for_the_next_drive_cha), 17, MUTED).apply { setPadding(0, dp(8), 0, dp(24)) })
         section(content, getString(R.string.s_1_choose_your_connection)) { card -> wirelessLinkControls(card) }
+        section(content, getString(R.string.wireless_ip_family_title)) { card -> wirelessAddressFamilyControls(card) }
         section(content, getString(R.string.s_2_pair_your_iphone)) { card ->
             card.addView(label(getString(R.string.keep_bluetooth_and_wi_fi_on_your_iphone_pair_with_the_car), 16, MUTED))
             card.addView(button("${getString(R.string.choose_iphone_prefix)}${DiPlayPreferences.phoneName(this)}", false) { choosePhone() }, matchButton(12, 60))
@@ -692,6 +693,41 @@ class DiPlayActivity : ComponentActivity() {
             parent.addView(label(getString(R.string.turn_the_car_s_wi_fi_switch_on_allow_location_nearby_devic), 16, MUTED))
             parent.addView(button(getString(R.string.open_car_wi_fi_settings), false) { openCarClientWifiSettings() }, matchButton(12, 60))
         }
+    }
+
+    private fun wirelessAddressFamilyControls(parent: LinearLayout) {
+        val currentFamily = AirPlayPersistence.loadWirelessAddressFamily(this)
+        val families = listOf(
+            AirPlayPersistence.ADDRESS_FAMILY_IPV4,
+            AirPlayPersistence.ADDRESS_FAMILY_IPV6,
+            AirPlayPersistence.ADDRESS_FAMILY_AUTO,
+        )
+        val titles = listOf(
+            getString(R.string.wireless_ip_family_ipv4),
+            getString(R.string.wireless_ip_family_ipv6),
+            getString(R.string.wireless_ip_family_auto),
+        )
+        val wide = resources.configuration.screenWidthDp >= 850
+        val choices = if (wide) row().apply { gravity = Gravity.TOP } else column()
+        parent.addView(choices)
+        families.forEachIndexed { index, candidate ->
+            val isSelected = currentFamily == candidate
+            val btn = button("${if (isSelected) "✓  " else ""}${titles[index]}", isSelected) {
+                AirPlayPersistence.saveWirelessAddressFamily(this, candidate)
+                render()
+                toast(getString(R.string.saved_for_your_next_connection))
+            }
+            choices.addView(
+                btn,
+                if (wide) LinearLayout.LayoutParams(0, -2, 1f).apply {
+                    if (index > 0) marginStart = dp(12)
+                } else matchButton(if (index > 0) 10 else 0, 54),
+            )
+        }
+        parent.addView(
+            label(getString(R.string.wireless_ip_family_desc), 15, MUTED)
+                .apply { setPadding(0, dp(10), 0, 0) },
+        )
     }
 
     private fun mediaChannelControl(parent: LinearLayout) {

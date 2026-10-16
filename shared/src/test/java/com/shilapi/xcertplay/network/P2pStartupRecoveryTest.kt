@@ -126,7 +126,7 @@ class P2pStartupRecoveryTest {
     }
 
     @Test fun permissionUnsupportedAndUncertainTimeoutNeverTriggerAnotherCreation() {
-        for (failure in listOf(P2pCreateRejected(WifiP2pManager.NO_PERMISSION, "permission"),
+        for (failure in listOf(P2pCreateRejected(3 /* NO_PERMISSION */, "permission"),
             P2pCreateRejected(WifiP2pManager.P2P_UNSUPPORTED, "unsupported"), IOException("timeout"))) {
             var calls = 0
             try {

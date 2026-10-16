@@ -93,6 +93,17 @@
   3. 自由拖动吸附与记忆：支持随手拖拽并在松手后靠边吸附，坐标持久化保存；
   4. 兼容性：适配 Android 4.4.2 API 19（`TYPE_PHONE`）至 Android 14+（`TYPE_APPLICATION_OVERLAY`），无需系统额外依赖。
 
+### 3.15 修复无线 CarPlay 默认优先 IPv6 导致一直反复重连问题
+- **根因**：
+  1. 原版在建立无线热点/Wi-Fi Direct 后，`WirelessHostAddress`、`LocalOnlyHotspotManager` 和 `WifiP2pGroupManager` 均无条件优先选择网卡自动生成的 IPv6 link-local 地址（`fe80::...`），甚至轮询等待 IPv6 出现；
+  2. 车机在蓝牙 0x5703 终结点信息中向 iPhone 发布该 IPv6 地址。iPhone 连上 Wi-Fi 热点后尝试向此 IPv6 地址建立 AirPlay TCP（7000端口）连接；
+  3. 大量车载 Android 系统（包括 Android 4.4 KitKat 及多种定制 ROM）的 Linux 内核没有为 AP 接口配置 IPv6 link-local 策略路由，无 network mark 的套接字无法将 SYN-ACK 回复发给 iPhone，导致握手静默丢弃，iPhone 30 秒超时后断开并重新发起蓝牙连接，陷入**“正在连接 -> 超时断开 -> 反复重连”**死循环；
+  4. 反之，IPv4 子网路由位于全局共享的 `local_network` 路由表，任何系统上均能秒级响应。
+- **方案**：
+  1. **默认全面锁定 IPv4 优先**：新增 `HotspotAddressPolicy`，统一接管所有热点后端（SoftAP、Wi-Fi P2P、LocalOnlyHotspot）的地址判定，只要接口存在可用 IPv4 地址即刻作为终结点返回并立即握手，彻底终结重连死循环；
+  2. **智能备用与故障转移（Flip / Recovery）**：在 `CarPlayController` 中采样接口候选地址，若首次无线握手在默认模式下遭遇超时且存在对侧地址族，自动翻转（flip）尝试另一协议族进行容灾救活；
+  3. **设置界面提供自主切换**：在“连接设置”页面中提供“无线 IP 协议族”直观选项（**IPv4 推荐/默认**、**IPv6**、**自动故障切换**），让用户既能享受到默认 IPv4 的极速秒连，亦可在特殊网络环境下自主切换。
+
 ---
 
 ## 4. 构建与发布指南

@@ -14,6 +14,11 @@
     <string name="marker_centre_default">Centre · default</string>
     <string name="hotspot_mode_manual_desc">Use the car’s own hotspot. Select 5 GHz in car settings if available.</string>
     <string name="hotspot_mode_p2p_desc">Alternative setup. Requires the car’s Wi-Fi switch on; a 2.4 GHz connection may stutter.</string>
+    <string name="wireless_ip_family_title">Wireless IP protocol</string>
+    <string name="wireless_ip_family_desc">Default is IPv4 (recommended). Fixes repeated reconnect loops. Switch to IPv6 only if your network explicitly requires it.</string>
+    <string name="wireless_ip_family_ipv4">IPv4 (Default)</string>
+    <string name="wireless_ip_family_ipv6">IPv6</string>
+    <string name="wireless_ip_family_auto">Auto-Failover</string>
     <string name="hotspot_details_off">Hotspot is off · Turn it on in car settings.</string>
     <string name="hotspot_details_saved">Details saved · Check that the car hotspot is on before connecting.</string>
     <string name="permission_enabled_ready">Permission enabled · ready to use</string>

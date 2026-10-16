@@ -47,6 +47,12 @@ object AirPlayPersistence {
     private const val KEY_NAVIGATION_STREAM_TYPE = "navigation_stream_type"
     private const val KEY_WIRELESS_ENABLED = "wireless_enabled"
     private const val KEY_WIRELESS_HOTSPOT_MODE = "wireless_hotspot_mode"
+    private const val WIRELESS_PREFS = "diplay_wireless"
+    private const val KEY_HOTSPOT_ADDRESS_FAMILY = "hotspot_address_family"
+
+    const val ADDRESS_FAMILY_IPV4 = "IPv4"
+    const val ADDRESS_FAMILY_IPV6 = "IPv6"
+    const val ADDRESS_FAMILY_AUTO = "AUTO"
     private const val KEY_MANUAL_HOTSPOT_SSID = "manual_hotspot_ssid"
     private const val KEY_MANUAL_HOTSPOT_PASSPHRASE = "manual_hotspot_passphrase"
     private const val KEY_MANUAL_HOTSPOT_BAND = "manual_hotspot_band"
@@ -259,6 +265,17 @@ object AirPlayPersistence {
         val supported = if (mode == WirelessHotspotMode.LOCAL_ONLY_HOTSPOT) WirelessHotspotMode.MANUAL else mode
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY_WIRELESS_HOTSPOT_MODE, supported.name)
+            .apply()
+    }
+
+    fun loadWirelessAddressFamily(context: Context): String {
+        val prefs = context.getSharedPreferences(WIRELESS_PREFS, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_HOTSPOT_ADDRESS_FAMILY, null) ?: ADDRESS_FAMILY_IPV4
+    }
+
+    fun saveWirelessAddressFamily(context: Context, family: String) {
+        context.getSharedPreferences(WIRELESS_PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_HOTSPOT_ADDRESS_FAMILY, family)
             .apply()
     }
 
